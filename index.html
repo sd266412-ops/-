@@ -1,1057 +1,2938 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>가시 피하기 서바이벌 (Spike Survivor)</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-    body {
-      background: #070b14;
-      color: #f8fafc;
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
-    }
-    canvas { display: block; width: 100vw; height: 100vh; }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>가시 피하기 서바이벌 (Spike Survivor)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Orbitron:wght@600;800;900&display=swap');
+  * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
+  body {
+    margin: 0;
+    padding: 0;
+    background: #060812;
+    color: #f8fafc;
+    font-family: 'Noto Sans KR', sans-serif;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+  .font-orbitron { font-family: 'Orbitron', sans-serif; }
+  canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
 
-    /* 오버레이 공통 */
-    .overlay {
-      position: fixed; inset: 0;
-      background: rgba(6, 10, 20, 0.88);
-      backdrop-filter: blur(8px);
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 50;
-      padding: 16px;
-      pointer-events: none;
-      overflow-y: auto;
-    }
-    .overlay.active {
-      display: flex;
-      pointer-events: auto;
-    }
+  .modal-layer {
+    pointer-events: auto;
+    touch-action: manipulation;
+  }
+  .modal-layer.hidden {
+    display: none !important;
+    pointer-events: none !important;
+  }
 
-    .panel {
-      background: linear-gradient(145deg, #0f172a, #1e293b);
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      border-radius: 20px;
-      padding: 24px;
-      max-width: 820px;
-      width: 100%;
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(56, 189, 248, 0.15);
-      max-height: 92vh;
-      overflow-y: auto;
-    }
+  .glass-panel {
+    background: linear-gradient(155deg, rgba(15, 23, 42, 0.96), rgba(24, 20, 56, 0.98));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9), inset 0 0 24px rgba(56, 189, 248, 0.1);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #06b6d4, #6366f1);
+    box-shadow: 0 6px 24px rgba(6, 182, 212, 0.45);
+    transition: transform 0.12s ease, box-shadow 0.15s ease;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(56, 189, 248, 0.65); }
+  .btn-primary:active { transform: scale(0.97); }
 
-    h1 {
-      font-size: clamp(1.6rem, 4vw, 2.4rem);
-      font-weight: 900;
-      text-align: center;
-      background: linear-gradient(90deg, #38bdf8, #818cf8, #f472b6);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      margin-bottom: 6px;
-    }
-    .subtitle { text-align: center; color: #94a3b8; font-size: 0.92rem; margin-bottom: 16px; }
+  .btn-gold {
+    background: linear-gradient(135deg, #f59e0b, #ea580c);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+    transition: transform 0.12s ease, box-shadow 0.15s ease;
+  }
+  .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(245, 158, 11, 0.55); }
+  .btn-gold:active { transform: scale(0.97); }
 
-    .top-bar {
-      display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; align-items: center;
-      background: rgba(15, 23, 42, 0.8); padding: 10px 14px; border-radius: 12px;
-      border: 1px solid rgba(148, 163, 184, 0.2); margin-bottom: 16px;
-    }
-    .gold-badge { font-weight: 800; color: #fbbf24; font-size: 1.05rem; }
-    .server-box { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-    .server-box input {
-      background: #0f172a; border: 1px solid #334155; color: #f8fafc;
-      padding: 6px 10px; border-radius: 8px; font-size: 0.82rem;
-    }
-    .btn {
-      cursor: pointer; border: none; border-radius: 12px; font-weight: 800;
-      padding: 12px 18px; font-size: 0.95rem; transition: transform 0.12s, box-shadow 0.12s;
-    }
-    .btn:active { transform: scale(0.96); }
-    .btn-primary {
-      background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff;
-      box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
-    }
-    .btn-shop {
-      background: linear-gradient(135deg, #f59e0b, #ea580c); color: #fff;
-      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
-    }
-    .btn-rank {
-      background: linear-gradient(135deg, #10b981, #059669); color: #fff;
-    }
-    .btn-sm { padding: 6px 11px; font-size: 0.8rem; border-radius: 8px; }
-    .btn-ghost { background: #1e293b; color: #cbd5e1; border: 1px solid #334155; }
+  .btn-emerald {
+    background: linear-gradient(135deg, #10b981, #059669);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+    transition: transform 0.12s ease, box-shadow 0.15s ease;
+  }
+  .btn-emerald:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.55); }
+  .btn-emerald:active:not(:disabled) { transform: scale(0.98); }
+  .btn-emerald:disabled {
+    background: #1e293b;
+    color: #64748b;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
 
-    /* 스테이지 그리드 */
-    .stage-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 10px; margin-bottom: 18px;
-    }
-    .stage-card {
-      background: rgba(15, 23, 42, 0.9); border: 2px solid #334155;
-      border-radius: 14px; padding: 12px; cursor: pointer; text-align: left;
-      transition: all 0.15s;
-    }
-    .stage-card.selected {
-      border-color: #38bdf8; background: rgba(56, 189, 248, 0.14);
-      box-shadow: 0 0 18px rgba(56, 189, 248, 0.3);
-    }
-    .stage-card .st-num { font-size: 0.75rem; font-weight: 800; color: #38bdf8; }
-    .stage-card .st-title { font-size: 0.95rem; font-weight: 800; margin: 3px 0; color: #f8fafc; }
-    .stage-card .st-meta { font-size: 0.78rem; color: #94a3b8; }
-    .stage-card .st-reward { font-size: 0.82rem; font-weight: 800; color: #fbbf24; margin-top: 4px; }
-    .stage-card .st-clear { font-size: 0.72rem; color: #34d399; font-weight: 800; margin-top: 2px; }
+  .stage-btn {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1.5px solid rgba(71, 85, 105, 0.6);
+    transition: all 0.14s ease;
+  }
+  .stage-btn:hover { border-color: #38bdf8; }
+  .stage-btn.selected {
+    background: linear-gradient(145deg, rgba(14, 116, 144, 0.45), rgba(67, 56, 202, 0.45));
+    border-color: #38bdf8;
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+  }
 
-    /* HUD */
-    #hud {
-      position: fixed; top: 12px; left: 12px; right: 12px;
-      display: none; flex-direction: column; gap: 6px; z-index: 20; pointer-events: none;
-    }
-    .hud-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .hud-pill {
-      background: rgba(15, 23, 42, 0.82); border: 1px solid rgba(148, 163, 184, 0.25);
-      padding: 6px 12px; border-radius: 999px; font-size: 0.85rem; font-weight: 700;
-    }
-    .bar-wrap { width: 100%; height: 8px; background: rgba(15, 23, 42, 0.85); border-radius: 999px; overflow: hidden; border: 1px solid rgba(255,255,255,0.12); }
-    .bar-fill { height: 100%; transition: width 0.1s linear; }
-    #stopWarnBanner {
-      align-self: center; background: rgba(220, 38, 38, 0.9); color: #fff;
-      font-weight: 900; padding: 6px 16px; border-radius: 999px; font-size: 0.9rem;
-      display: none; box-shadow: 0 0 20px rgba(239, 68, 68, 0.8);
-    }
+  .skill-card {
+    background: rgba(15, 23, 42, 0.94);
+    border: 2px solid rgba(56, 189, 248, 0.38);
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .skill-card:hover, .skill-card:active {
+    transform: translateY(-4px);
+    border-color: #38bdf8;
+    box-shadow: 0 10px 26px rgba(56, 189, 248, 0.38);
+  }
+  .skill-card.evo-ready {
+    border-color: #facc15;
+    background: linear-gradient(160deg, rgba(30, 27, 75, 0.96), rgba(113, 63, 18, 0.45));
+    box-shadow: 0 0 24px rgba(250, 204, 21, 0.4);
+  }
 
-    /* 레벨업 카드 */
-    .skill-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 14px; }
-    .choice-card {
-      background: linear-gradient(160deg, #1e293b, #0f172a); border: 2px solid #38bdf8;
-      border-radius: 16px; padding: 16px; cursor: pointer; text-align: center;
-      transition: transform 0.15s, border-color 0.15s;
-    }
-    .choice-card:hover { transform: translateY(-4px); border-color: #fbbf24; }
-    .choice-card.evo-ready { border-color: #fbbf24; box-shadow: 0 0 24px rgba(251, 191, 36, 0.45); }
+  @keyframes cardPop {
+    from { transform: scale(0.72) translateY(10px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .card-pop { animation: cardPop 0.26s cubic-bezier(0.22, 1, 0.36, 1); }
 
-    /* 상점 & 인벤토리 */
-    .inv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 10px; margin-top: 12px; }
-    .inv-item {
-      background: #0f172a; border: 1px solid #334155; border-radius: 12px; padding: 12px;
-      display: flex; flex-direction: column; justify-content: space-between; gap: 6px;
-    }
-    .inv-item.can-merge { border-color: #34d399; box-shadow: 0 0 12px rgba(52, 211, 153, 0.25); }
-
-    /* 랭킹 테이블 */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.88rem; }
-    th, td { padding: 8px 10px; border-bottom: 1px solid #1e293b; text-align: left; }
-    th { color: #38bdf8; }
-  </style>
+  @keyframes evoBanner {
+    0% { transform: translate(-50%, -20px) scale(0.85); opacity: 0; }
+    15% { transform: translate(-50%, 0) scale(1.05); opacity: 1; }
+    85% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -15px) scale(0.95); opacity: 0; }
+  }
+  .evo-toast { animation: evoBanner 2.6s ease forwards; }
+</style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
 
-  <!-- 인게임 HUD -->
-  <div id="hud">
-    <div class="hud-row">
-      <div class="hud-pill" id="hudStage">STAGE 1</div>
-      <div class="hud-pill" id="hudTime">00:00 / 03:00</div>
-      <div class="hud-pill" id="hudLv">LV.1 (0/10)</div>
-      <div class="hud-pill" id="hudGold" style="color:#fbbf24;">💰 0 G</div>
+<canvas id="gameCanvas"></canvas>
+
+<!-- Evolution Toast Banner -->
+<div id="evoBannerBox" class="hidden fixed top-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-600/95 via-yellow-500/95 to-amber-600/95 border-2 border-yellow-200 shadow-[0_0_30px_rgba(250,204,21,0.85)] text-center">
+  <div class="font-orbitron text-[10px] font-black tracking-widest text-slate-950">★ SKILL EVOLUTION ★</div>
+  <div id="evoBannerText" class="text-sm sm:text-base font-black text-slate-950"></div>
+</div>
+
+<!-- Top HUD -->
+<div id="hud" class="hidden fixed top-0 left-0 right-0 z-10 pointer-events-none flex flex-col">
+  <!-- XP Bar -->
+  <div class="w-full h-3.5 bg-slate-950/90 border-b border-cyan-500/30 relative overflow-hidden">
+    <div id="xpBar" class="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 transition-all duration-150" style="width: 0%;"></div>
+    <div id="xpText" class="absolute inset-0 flex items-center justify-center text-[10px] font-orbitron font-bold text-white drop-shadow">
+      0 / 6 XP
     </div>
-    <div class="bar-wrap"><div class="bar-fill" id="stageBar" style="width:0%; background:linear-gradient(90deg,#38bdf8,#34d399);"></div></div>
-    <div class="bar-wrap" style="height:5px;"><div class="bar-fill" id="xpBar" style="width:0%; background:#a855f7;"></div></div>
-    <div id="stopWarnBanner">⚠️ 정지 경고! 1초 멈추면 즉시 사망!</div>
   </div>
 
-  <!-- 메인 메뉴 오버레이 -->
-  <div id="menuOverlay" class="overlay active">
-    <div class="panel">
-      <h1>⚡ 가시 피하기 서바이벌</h1>
-      <p class="subtitle">규칙: <b>1초 이상 멈춰 있으면 즉시 게임 오버!</b> 끝없이 움직이며 가시를 피하세요.</p>
+  <!-- Stats & Controls Row -->
+  <div class="p-3 sm:p-4 flex justify-between items-start gap-2">
+    <!-- Left: Stage, Level, Hearts, Active Skills -->
+    <div class="flex flex-col gap-1.5">
+      <div class="flex flex-wrap items-center gap-1.5">
+        <span id="stageHudBadge" class="px-2.5 py-0.5 rounded-lg bg-purple-500/25 border border-purple-400 text-purple-200 font-extrabold text-xs">
+          STAGE 1 · 고요한 에메랄드 초원
+        </span>
+        <span id="lvBadge" class="px-2.5 py-0.5 rounded-lg bg-cyan-500/20 border border-cyan-400 text-cyan-300 font-orbitron font-extrabold text-xs">
+          LV.1
+        </span>
+      </div>
+      <div id="hpHearts" class="flex items-center gap-1 text-base sm:text-lg drop-shadow">❤️❤️❤️</div>
+      <div id="activeSkillsHud" class="flex flex-wrap gap-1 max-w-[270px]"></div>
+    </div>
 
-      <div class="top-bar">
-        <div class="gold-badge" id="menuGold">💰 보유 골드: 200 G</div>
-        <div class="server-box">
-          <input type="text" id="nickInput" placeholder="닉네임 (최대 12자)" maxlength="12" style="width:120px;" />
-          <input type="text" id="serverUrlInput" placeholder="서버 URL (예: https://xxx.onrender.com)" style="width:220px;" />
-          <button class="btn btn-sm btn-ghost" onclick="saveServerConfig()">연동/저장</button>
+    <!-- Center: Stage Timer Progress & 1-Second Stillness Warning -->
+    <div class="flex flex-col items-center">
+      <div class="flex items-baseline gap-1">
+        <span id="timerText" class="font-orbitron text-xl sm:text-2xl font-black text-white tracking-wider drop-shadow-[0_0_10px_rgba(56,189,248,0.65)]">
+          00:00
+        </span>
+        <span id="targetTimeText" class="font-orbitron text-xs sm:text-sm font-bold text-cyan-300">
+          / 03:00
+        </span>
+      </div>
+      <div class="w-36 sm:w-44 h-1.5 bg-slate-900/90 rounded-full overflow-hidden border border-slate-700 mt-1">
+        <div id="stageProgressBar" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 transition-all duration-150" style="width: 0%;"></div>
+      </div>
+      <div class="flex items-center gap-3 text-xs text-slate-300 mt-1 font-bold">
+        <span>💀 <span id="killsText" class="font-orbitron">0</span></span>
+        <span class="text-amber-300">🪙 <span id="hudCoinsText" class="font-orbitron">0</span></span>
+      </div>
+
+      <!-- 1.0s Stillness Warning Box -->
+      <div id="idleWarningBox" class="hidden mt-2 px-3 py-1.5 rounded-xl bg-rose-950/95 border border-rose-500 shadow-[0_0_24px_rgba(244,63,94,0.85)] w-44 sm:w-52">
+        <div class="flex justify-between items-center text-[11px] font-black text-rose-200 mb-1">
+          <span>⚠️ 멈추면 사망!</span>
+          <span id="idleTimerText" class="font-orbitron text-amber-300">0.0s / 1.0s</span>
+        </div>
+        <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+          <div id="idleBarFill" class="h-full bg-gradient-to-r from-amber-400 to-rose-500" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Sound & Pause -->
+    <div class="flex gap-2 pointer-events-auto">
+      <button id="soundToggleBtn" type="button" class="w-10 h-10 rounded-xl bg-slate-900/85 border border-slate-700 text-cyan-400 flex items-center justify-center hover:bg-slate-800 cursor-pointer">
+        <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+      </button>
+      <button id="pauseToggleBtn" type="button" class="w-10 h-10 rounded-xl bg-slate-900/85 border border-slate-700 text-slate-200 flex items-center justify-center hover:bg-slate-800 cursor-pointer">
+        <i class="fa-solid fa-pause"></i>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Start Overlay with 5-Stage Selector -->
+<div id="startOverlay" class="modal-layer fixed inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-sm">
+  <div class="glass-panel rounded-3xl p-5 sm:p-6 max-w-lg w-full max-h-[94vh] overflow-y-auto text-center flex flex-col items-center">
+    <h1 class="text-2xl sm:text-3xl font-black bg-gradient-to-r from-cyan-400 via-purple-400 to-rose-400 bg-clip-text text-transparent">
+      가시 피하기 서바이벌
+    </h1>
+    <p class="font-orbitron text-[10px] tracking-widest text-cyan-400/80 mt-0.5 mb-3">SPIKE SURVIVOR · STAGE EDITION</p>
+
+
+    <!-- Server & Global Ranking Bar -->
+    <div class="w-full bg-slate-900/90 rounded-2xl p-2.5 border border-cyan-500/30 mb-3 flex flex-col gap-1.5 text-left">
+      <div class="flex items-center justify-between gap-1.5">
+        <span class="text-[11px] font-bold text-cyan-300">🌐 서버 연동 / 글로벌 랭킹</span>
+        <span id="serverConnBadge" class="text-[10px] font-bold text-slate-400">오프라인 로컬 모드</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5">
+        <input id="nickInput" type="text" maxlength="12" placeholder="닉네임 (12자)" class="flex-1 min-w-[95px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-400" />
+        <input id="serverUrlInput" type="text" placeholder="서버 URL (자동 감지)" class="flex-[2] min-w-[140px] bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-400" />
+        <button id="saveServerBtn" type="button" class="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs cursor-pointer">연동</button>
+      </div>
+    </div>
+
+    <!-- Stage Selector Grid -->
+    <div class="w-full text-left mb-2">
+      <div class="flex justify-between items-center text-xs font-bold text-slate-300 mb-1.5">
+        <span>🚩 도전 스테이지 선택</span>
+        <span class="text-amber-300">보유 골드: 🪙 <span id="startCoinsText" class="font-orbitron">200</span> G</span>
+      </div>
+      <div id="stageGrid" class="grid grid-cols-5 gap-1.5"></div>
+    </div>
+
+    <!-- Selected Stage Detail Card -->
+    <div id="selectedStageInfo" class="w-full bg-slate-900/90 rounded-2xl p-3.5 border border-cyan-500/35 text-left text-xs space-y-1.5 mb-3">
+      <div class="flex justify-between items-center gap-2">
+        <span id="stageDetailTitle" class="font-black text-sm text-emerald-300">STAGE 1 · 고요한 에메랄드 초원</span>
+        <span id="stageDetailReward" class="px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/40 text-amber-300 font-orbitron font-bold text-[11px] shrink-0">
+          클리어 +3,500 G
+        </span>
+      </div>
+      <div id="stageDetailTheme" class="text-[11px] text-cyan-200/90">🌿 테마 배경: 깊고 고요한 에메랄드 밤숲 초원과 금빛 반딧불이</div>
+      <div id="stageDetailGoal" class="text-slate-300">⏱️ 목표 생존 시간: <b class="text-white">3분 (03:00)</b> · 난이도: <b class="text-emerald-400">쉬움</b></div>
+      <div id="stageDetailSpikes" class="text-slate-400 leading-relaxed">출현 가시: 일반, 추적, 분열, 지그재그 가시</div>
+    </div>
+
+    <div class="w-full bg-rose-950/35 rounded-xl px-3 py-2 border border-rose-500/30 text-[11px] text-rose-200 text-left mb-4">
+      ⚠️ <b>절대 규칙:</b> <b>1.0초</b> 이상 멈추면 즉시 게임 오버! 같은 스킬 <b>5장(LV.5)</b> 획득 시 진화 각성!
+    </div>
+
+    <div class="w-full flex flex-col gap-2">
+      <button id="startBtn" type="button" class="btn-primary w-full py-3.5 rounded-2xl font-black text-white text-base sm:text-lg tracking-wide cursor-pointer flex items-center justify-center gap-2">
+        <i class="fa-solid fa-play"></i> <span id="startBtnLabel">🌿 STAGE 1 · 에메랄드 초원 출격</span>
+      </button>
+      <div class="grid grid-cols-2 gap-2 w-full">
+        <button id="openShopStartBtn" type="button" class="btn-gold w-full py-3 rounded-2xl font-black text-white text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-gift"></i> 상점 / 카드 인벤토리
+        </button>
+        <button id="openRankStartBtn" type="button" class="btn-emerald w-full py-3 rounded-2xl font-black text-white text-xs sm:text-sm cursor-pointer flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-trophy"></i> 글로벌 랭킹 TOP 20
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Level Up Modal -->
+<div id="levelUpOverlay" class="modal-layer hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+  <div class="glass-panel rounded-3xl p-5 sm:p-7 max-w-2xl w-full text-center">
+    <span class="inline-block px-3 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-300 font-orbitron text-xs font-bold mb-2">
+      LEVEL UP!
+    </span>
+    <h2 class="text-2xl font-black text-white mb-1">스킬 카드 선택</h2>
+    <p class="text-xs text-slate-400 mb-5">같은 스킬 5장(LV.5)을 모으면 진화 각성하며 이후 선택지에서 제외됩니다.</p>
+    <div id="levelUpCards" class="grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+  </div>
+</div>
+
+<!-- Pause Modal -->
+<div id="pauseOverlay" class="modal-layer hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm">
+  <div class="glass-panel rounded-3xl p-6 max-w-xs w-full text-center flex flex-col gap-3">
+    <h2 class="text-2xl font-black text-cyan-400 mb-1">일시 정지</h2>
+    <button id="resumeBtn" type="button" class="btn-primary w-full py-3.5 rounded-xl font-bold text-white cursor-pointer">
+      계속하기
+    </button>
+    <button id="pauseRestartBtn" type="button" class="w-full py-3 rounded-xl font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer">
+      현재 스테이지 재시작
+    </button>
+    <button id="pauseMenuBtn" type="button" class="w-full py-3 rounded-xl font-bold bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800 cursor-pointer">
+      스테이지 선택 화면으로
+    </button>
+  </div>
+</div>
+
+<!-- Shop & Inventory Modal -->
+<div id="shopOverlay" class="modal-layer hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+  <div class="glass-panel rounded-3xl p-5 sm:p-6 max-w-xl w-full max-h-[90vh] flex flex-col">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="text-xl font-black text-white">🎁 상점 & 카드 인벤토리</h2>
+      <div class="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-300 font-orbitron font-bold text-sm">
+        🪙 <span id="shopCoinsText">200</span> G
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-2 p-1 rounded-xl bg-slate-900/90 border border-slate-800 mb-4">
+      <button id="tabShopBtn" type="button" class="flex-1 py-2 rounded-lg text-xs sm:text-sm font-black bg-cyan-600 text-white cursor-pointer">
+        랜덤박스 뽑기
+      </button>
+      <button id="tabInvBtn" type="button" class="flex-1 py-2 rounded-lg text-xs sm:text-sm font-black text-slate-400 hover:text-white cursor-pointer">
+        인벤토리 / +0.1 합성
+      </button>
+    </div>
+
+    <!-- Shop Tab -->
+    <div id="shopTabContent" class="flex-1 overflow-y-auto">
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="rounded-2xl bg-slate-900/90 border border-slate-700 p-4 text-center flex flex-col items-center gap-2">
+          <div class="text-3xl">📦</div>
+          <div class="font-black text-sm text-white">일반 랜덤박스</div>
+          <div class="text-[11px] text-slate-400">증폭 카드 1장 (기본 x1.1)</div>
+          <button id="buyBox1Btn" type="button" class="btn-gold w-full py-2.5 rounded-xl font-black text-xs text-white cursor-pointer">
+            100 G 열기
+          </button>
+        </div>
+        <div class="rounded-2xl bg-slate-900/90 border border-purple-500/50 p-4 text-center flex flex-col items-center gap-2">
+          <div class="text-3xl">✨🎁✨</div>
+          <div class="font-black text-sm text-purple-300">고급 3연속 박스</div>
+          <div class="text-[11px] text-slate-400">x1.2~x1.3 고배율 확률! (3장)</div>
+          <button id="buyBox3Btn" type="button" class="btn-primary w-full py-2.5 rounded-xl font-black text-xs text-white cursor-pointer">
+            270 G 열기
+          </button>
         </div>
       </div>
 
-      <div style="font-weight:800; margin-bottom:8px; color:#cbd5e1;">🗺️ 도전 스테이지 선택</div>
-      <div class="stage-grid" id="stageGrid"></div>
-
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <button class="btn btn-primary" style="flex:2;" onclick="startGame()">🚀 출격하기</button>
-        <button class="btn btn-shop" style="flex:1;" onclick="openShop()">🎁 상점 / 카드 합성</button>
-        <button class="btn btn-rank" style="flex:1;" onclick="openRanking()">🏆 글로벌 랭킹</button>
+      <div id="shopNoticeMsg" class="text-center text-xs font-bold text-rose-400 mb-2 min-h-[18px]"></div>
+      <div class="text-xs text-slate-400 text-center mb-2">뽑기 결과</div>
+      <div id="gachaResults" class="flex flex-wrap justify-center gap-2.5 min-h-[115px] p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+        <div class="text-xs text-slate-500 self-center">상자를 열어 스킬 증폭 카드를 획득하세요!</div>
       </div>
     </div>
-  </div>
 
-  <!-- 상점 / 인벤토리 오버레이 -->
-  <div id="shopOverlay" class="overlay">
-    <div class="panel">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h2 style="color:#fbbf24;">🎁 상점 & 영구 배율 카드 합성</h2>
-        <button class="btn btn-sm btn-ghost" onclick="closeShop()">닫기 ✕</button>
+    <!-- Inventory Tab -->
+    <div id="invTabContent" class="hidden flex-1 overflow-y-auto">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-2 bg-slate-900/85 p-2.5 rounded-xl border border-slate-800 mb-3">
+        <p class="text-[11px] text-slate-300 text-center sm:text-left">
+          동일 배율 카드 <b class="text-emerald-400">3장</b> 합성 시 배율 <b class="text-amber-300">+0.1</b> 영구 증가!
+        </p>
+        <button id="mergeAllBtn" type="button" class="btn-emerald px-3.5 py-2 rounded-lg text-xs font-black text-white whitespace-nowrap cursor-pointer">
+          ✨ 가능한 카드 전체 일괄 합성
+        </button>
       </div>
-      <div class="top-bar">
-        <div class="gold-badge" id="shopGold">💰 200 G</div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-sm btn-primary" onclick="buyBox(100, 1)">📦 일반 상자 (100G)</button>
-          <button class="btn btn-sm btn-shop" onclick="buyBox(450, 5)">✨ 5연속 뽑기 (450G)</button>
-          <button class="btn btn-sm btn-rank" onclick="mergeAllCards()">✨ 가능한 카드 전체 일괄 합성</button>
-        </div>
+      <div id="mergeStatusMsg" class="text-center text-xs font-bold text-emerald-400 mb-2 min-h-[16px]"></div>
+      <div id="invGrid" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-[280px] overflow-y-auto pr-1"></div>
+    </div>
+
+    <button id="closeShopBtn" type="button" class="mt-4 w-full py-3 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer">
+      닫기
+    </button>
+  </div>
+</div>
+
+<!-- Stage Clear Victory Modal -->
+<div id="stageClearOverlay" class="modal-layer hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+  <div class="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full text-center flex flex-col items-center border-amber-400/60 shadow-[0_0_50px_rgba(250,204,21,0.3)]">
+    <div class="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center mb-3 text-amber-300 shadow-[0_0_24px_rgba(250,204,21,0.5)]">
+      <i class="fa-solid fa-trophy text-3xl"></i>
+    </div>
+    <div class="font-orbitron text-xs font-black tracking-widest text-amber-300 mb-1">CONGRATULATIONS!</div>
+    <h2 id="clearTitleText" class="text-2xl sm:text-3xl font-black bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-300 bg-clip-text text-transparent mb-2">
+      STAGE 1 CLEAR!
+    </h2>
+    <p id="clearDescText" class="text-xs text-slate-300 mb-4">목표 생존 시간을 달성하여 스테이지를 정복했습니다!</p>
+
+    <div class="w-full bg-slate-900/90 rounded-2xl p-3.5 border border-amber-400/40 space-y-2 mb-5 text-xs">
+      <div class="flex justify-between">
+        <span class="text-slate-400">스테이지 클리어 보너스</span>
+        <span id="clearBonusGoldText" class="font-orbitron font-black text-amber-300">+3,500 G</span>
       </div>
-      <p style="font-size:0.83rem; color:#94a3b8;">동일 스킬·동일 배율 카드 <b>3장</b>을 합성하면 배율이 <b>+0.1</b>씩 영구 상승합니다. (예: x1.5 → x1.6)</p>
-      <div id="gachaLog" style="margin-top:8px; font-size:0.88rem; color:#38bdf8; font-weight:700;"></div>
-      <div class="inv-grid" id="invGrid"></div>
+      <div class="flex justify-between">
+        <span class="text-slate-400">전투 중 획득 코인</span>
+        <span id="clearRunGoldText" class="font-orbitron font-bold text-slate-200">+0 G</span>
+      </div>
+      <div class="border-t border-slate-800 pt-2 flex justify-between text-sm">
+        <span class="font-black text-white">총 획득 골드</span>
+        <span id="clearTotalGoldText" class="font-orbitron font-black text-emerald-400">+3,500 G</span>
+      </div>
+    </div>
+
+    <div class="w-full flex flex-col gap-2">
+      <button id="nextStageBtn" type="button" class="btn-primary w-full py-3.5 rounded-2xl font-black text-white text-base cursor-pointer flex items-center justify-center gap-2">
+        <i class="fa-solid fa-forward"></i> <span id="nextStageBtnLabel">다음 스테이지 도전</span>
+      </button>
+      <button id="openShopClearBtn" type="button" class="btn-gold w-full py-3 rounded-2xl font-black text-white text-sm cursor-pointer flex items-center justify-center gap-2">
+        <i class="fa-solid fa-gift"></i> 상점 / 카드 합성하러 가기
+      </button>
+      <button id="backMenuClearBtn" type="button" class="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer">
+        스테이지 선택 화면으로
+      </button>
     </div>
   </div>
+</div>
 
-  <!-- 레벨업 스킬 선택 오버레이 -->
-  <div id="levelUpOverlay" class="overlay">
-    <div class="panel" style="max-width:740px;">
-      <h2 style="text-align:center; color:#38bdf8;">⬆️ LEVEL UP! 스킬 카드 선택</h2>
-      <p class="subtitle">같은 스킬을 <b>5장(LV.5)</b> 모으면 각성 진화하며, 각성 완료된 스킬은 선택지에서 제외됩니다.</p>
-      <div class="skill-choices" id="skillChoices"></div>
+<!-- Global Ranking Modal -->
+<div id="rankOverlay" class="modal-layer hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+  <div class="glass-panel rounded-3xl p-5 sm:p-6 max-w-xl w-full max-h-[88vh] flex flex-col">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="text-xl font-black text-emerald-300">🏆 스테이지별 글로벌 TOP 20</h2>
+      <button id="closeRankBtn" type="button" class="px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 cursor-pointer">닫기 ✕</button>
     </div>
-  </div>
-
-  <!-- 랭킹 오버레이 -->
-  <div id="rankOverlay" class="overlay">
-    <div class="panel" style="max-width:640px;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h2 style="color:#34d399;">🏆 스테이지별 글로벌 TOP 20</h2>
-        <button class="btn btn-sm btn-ghost" onclick="closeRanking()">닫기 ✕</button>
-      </div>
-      <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;" id="rankStageTabs"></div>
-      <div id="rankStatus" style="font-size:0.85rem; color:#94a3b8;">불러오는 중...</div>
-      <table>
-        <thead><tr><th>순위</th><th>닉네임</th><th>상태</th><th>생존 시간</th><th>처치</th></tr></thead>
-        <tbody id="rankBody"></tbody>
+    <div id="rankStageTabs" class="grid grid-cols-5 gap-1.5 mb-3"></div>
+    <div id="rankStatusText" class="text-xs text-slate-400 mb-2 text-center">서버 연결 대기 중...</div>
+    <div class="flex-1 overflow-y-auto rounded-2xl bg-slate-950/70 border border-slate-800">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-900/90 text-cyan-300 border-b border-slate-800">
+          <tr>
+            <th class="py-2.5 px-3">순위</th>
+            <th class="py-2.5 px-3">닉네임</th>
+            <th class="py-2.5 px-3">상태</th>
+            <th class="py-2.5 px-3">생존 시간</th>
+            <th class="py-2.5 px-3">처치</th>
+          </tr>
+        </thead>
+        <tbody id="rankTableBody" class="divide-y divide-slate-800/70 text-slate-200"></tbody>
       </table>
     </div>
   </div>
+</div>
 
-  <!-- 결과(클리어 / 게임오버) 오버레이 -->
-  <div id="resultOverlay" class="overlay">
-    <div class="panel" style="max-width:460px; text-align:center;">
-      <h2 id="resultTitle" style="font-size:1.8rem; margin-bottom:8px;">GAME OVER</h2>
-      <p id="resultReason" style="color:#f87171; font-weight:700; margin-bottom:14px;"></p>
-      <div style="background:#0f172a; padding:14px; border-radius:12px; margin-bottom:16px; line-height:1.8;" id="resultStats"></div>
-      <div style="display:flex; gap:10px; justify-content:center;">
-        <button class="btn btn-primary" onclick="startGame()">다시 도전</button>
-        <button class="btn btn-ghost" onclick="backToMenu()">메인 메뉴</button>
+<!-- Game Over Modal -->
+<div id="gameOverOverlay" class="modal-layer hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+  <div class="glass-panel rounded-3xl p-6 sm:p-8 max-w-md w-full text-center flex flex-col items-center">
+    <div class="w-14 h-14 rounded-full bg-rose-500/20 border border-rose-500 flex items-center justify-center mb-3 text-rose-400">
+      <i class="fa-solid fa-skull-crossbones text-2xl"></i>
+    </div>
+    <h2 class="text-3xl font-black text-rose-500 mb-1">GAME OVER</h2>
+    <p id="deathReasonText" class="text-xs sm:text-sm font-bold text-rose-200 bg-rose-500/15 border border-rose-500/30 px-3 py-1 rounded-full mb-4">
+      가시에 피격되었습니다!
+    </p>
+
+    <div class="w-full grid grid-cols-3 gap-2 mb-5">
+      <div class="bg-slate-900/90 rounded-2xl p-3 border border-slate-800">
+        <div id="resTimeText" class="font-orbitron font-black text-lg text-cyan-400">00:00</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">생존 시간</div>
+      </div>
+      <div class="bg-slate-900/90 rounded-2xl p-3 border border-slate-800">
+        <div id="resKillsText" class="font-orbitron font-black text-lg text-purple-400">0</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">파괴한 가시</div>
+      </div>
+      <div class="bg-slate-900/90 rounded-2xl p-3 border border-slate-800">
+        <div id="resCoinsText" class="font-orbitron font-black text-lg text-amber-400">+0 G</div>
+        <div class="text-[11px] text-slate-400 mt-0.5">획득 골드</div>
       </div>
     </div>
+
+    <div class="w-full flex flex-col gap-2">
+      <button id="restartBtn" type="button" class="btn-primary w-full py-3.5 rounded-2xl font-black text-white text-base cursor-pointer flex items-center justify-center gap-2">
+        <i class="fa-solid fa-rotate-right"></i> 다시 도전하기
+      </button>
+      <button id="openShopOverBtn" type="button" class="btn-gold w-full py-3 rounded-2xl font-black text-white text-sm cursor-pointer flex items-center justify-center gap-2">
+        <i class="fa-solid fa-gift"></i> 상점 / 카드 인벤토리
+      </button>
+      <button id="backMenuOverBtn" type="button" class="w-full py-2.5 rounded-xl font-bold text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer">
+        스테이지 선택 화면으로
+      </button>
+    </div>
   </div>
+</div>
 
 <script>
-// ==========================================
-// 1. 게임 데이터 & 상수 정의
-// ==========================================
-const STAGES = [
-  { id: 1, title: '고요한 에메랄드 초원', duration: 180, reward: 3500, diff: '쉬움', theme: 'forest', types: ['normal','chase','split','zigzag'], spawnRate: 1.05, speedMult: 1.0 },
-  { id: 2, title: '황혼의 네온 협곡', duration: 300, reward: 6700, diff: '보통', theme: 'canyon', types: ['normal','chase','split','zigzag','giant','sniper'], spawnRate: 0.85, speedMult: 1.15 },
-  { id: 3, title: '안개 낀 유령 성채', duration: 420, reward: 17000, diff: '어려움', theme: 'ghost', types: ['normal','chase','split','zigzag','sniper','ghost'], spawnRate: 0.72, speedMult: 1.28 },
-  { id: 4, title: '용암 강철 요새', duration: 600, reward: 32000, diff: '매우 어려움', theme: 'fortress', types: ['chase','split','zigzag','giant','sniper','ghost','tank'], spawnRate: 0.62, speedMult: 1.4 },
-  { id: 5, title: '심연의 성운 코어', duration: 600, reward: 50000, diff: '악몽', theme: 'nebula', types: ['normal','chase','split','zigzag','giant','sniper','ghost','tank'], spawnRate: 0.50, speedMult: 1.55 }
-];
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
 
-const SKILLS = [
-  { id: 'shield', name: '회전 방패', evoName: '태양의 고리', icon: '🛡️', desc: '주변을 도는 에너지 방패' },
-  { id: 'laser', name: '자동 레이저', evoName: '궤도 이온 캐논', icon: '🔫', desc: '가까운 가시 자동 조준 발사' },
-  { id: 'fire', name: '화염 장판', evoName: '지옥불 영역', icon: '🔥', desc: '주변 가시를 태우는 화염 오라' },
-  { id: 'lightning', name: '번개 연쇄', evoName: '뇌신의 심판', icon: '⚡', desc: '가시 사이를 튀는 연쇄 번개' },
-  { id: 'nova', name: '충격파 방출', evoName: '초신성 파동', icon: '💥', desc: '주기적으로 전방위 충격파 발사' },
-  { id: 'time', name: '시간 왜곡장', evoName: '절대 영도 영역', icon: '⏳', desc: '주변 가시 이동 속도 둔화' },
-  { id: 'magnet', name: '중력 자석', evoName: '블랙홀 인력', icon: '🧲', desc: '경험치 보석 흡수 범위 대폭 증가' },
-  { id: 'speed', name: '신속 부스터', evoName: '광속 잔상', icon: '👟', desc: '이동 속도 증가 및 회피 기동 강화' },
-  { id: 'blade', name: '부메랑 칼날', evoName: '차원 절단기', icon: '🪃', desc: '관통하며 돌아오는 회전 칼날' },
-  { id: 'drone', name: '요격 드론', evoName: '발키리 편대', icon: '🛸', desc: '자동 추적 미사일 드론 지원' }
-];
+  // --- 5-Stage Definitions with Themes & Backgrounds ---
+  const STAGES = [
+    {
+      id: 1,
+      themeId: 'meadow',
+      themeIcon: '🌿',
+      shortTitle: '에메랄드 초원',
+      name: 'STAGE 1 · 고요한 에메랄드 초원',
+      themeDesc: '🌿 테마 배경: 깊고 고요한 에메랄드 밤숲 초원과 금빛 반딧불이',
+      titleColor: 'text-emerald-300',
+      badgeStyle: 'bg-emerald-500/25 border-emerald-400 text-emerald-200',
+      bgTop: '#041711',
+      bgBottom: '#0a2e22',
+      gridColor: 'rgba(52, 211, 153, 0.08)',
+      accentColor: '#34d399',
+      targetSec: 180,
+      reward: 3500,
+      diffLabel: '쉬움',
+      diffColor: 'text-emerald-400',
+      spawnBase: 0.85,
+      spawnMin: 0.34,
+      speedMult: 0.92,
+      allowedSpikes: ['normal', 'homing', 'splitter', 'zigzag'],
+      spikeDesc: '일반, 추적, 분열, 지그재그 가시'
+    },
+    {
+      id: 2,
+      themeId: 'canyon',
+      themeIcon: '🌇',
+      shortTitle: '황혼의 네온 협곡',
+      name: 'STAGE 2 · 황혼의 네온 협곡',
+      themeDesc: '🌇 테마 배경: 보랏빛 황혼의 네온 협곡 지평선과 노을 잔광',
+      titleColor: 'text-fuchsia-300',
+      badgeStyle: 'bg-fuchsia-500/25 border-fuchsia-400 text-fuchsia-200',
+      bgTop: '#140826',
+      bgBottom: '#2b103d',
+      gridColor: 'rgba(232, 121, 249, 0.11)',
+      accentColor: '#e879f9',
+      targetSec: 300,
+      reward: 6700,
+      diffLabel: '보통',
+      diffColor: 'text-sky-400',
+      spawnBase: 0.74,
+      spawnMin: 0.27,
+      speedMult: 1.05,
+      allowedSpikes: ['normal', 'homing', 'splitter', 'zigzag', 'sniper', 'giant'],
+      spikeDesc: '기존 4종 + 돌진 저격(골드), 거대(주황) 가시 추가'
+    },
+    {
+      id: 3,
+      themeId: 'citadel',
+      themeIcon: '👻',
+      shortTitle: '유령 성채',
+      name: 'STAGE 3 · 안개 낀 유령 성채',
+      themeDesc: '👻 테마 배경: 서늘한 푸른 안개가 감도는 고딕 성채와 도깨비불',
+      titleColor: 'text-sky-300',
+      badgeStyle: 'bg-sky-500/25 border-sky-400 text-sky-200',
+      bgTop: '#06111a',
+      bgBottom: '#0f2536',
+      gridColor: 'rgba(125, 211, 252, 0.08)',
+      accentColor: '#7dd3fc',
+      targetSec: 420,
+      reward: 17000,
+      diffLabel: '어려움',
+      diffColor: 'text-amber-400',
+      spawnBase: 0.64,
+      spawnMin: 0.22,
+      speedMult: 1.15,
+      allowedSpikes: ['normal', 'homing', 'splitter', 'zigzag', 'sniper', 'giant', 'ghost'],
+      spikeDesc: '기존 6종 + 스킬 무효 유령 가시(청백색) 출현!'
+    },
+    {
+      id: 4,
+      themeId: 'fortress',
+      themeIcon: '🌋',
+      shortTitle: '용암 강철 요새',
+      name: 'STAGE 4 · 용암 강철 요새',
+      themeDesc: '🌋 테마 배경: 붉은 용암 균열이 흐르는 흑요석 강철 제련소',
+      titleColor: 'text-orange-300',
+      badgeStyle: 'bg-orange-500/25 border-orange-400 text-orange-200',
+      bgTop: '#1a0706',
+      bgBottom: '#33100b',
+      gridColor: 'rgba(251, 146, 60, 0.11)',
+      accentColor: '#fb923c',
+      targetSec: 600,
+      reward: 32000,
+      diffLabel: '매우 어려움',
+      diffColor: 'text-orange-400',
+      spawnBase: 0.56,
+      spawnMin: 0.18,
+      speedMult: 1.24,
+      allowedSpikes: ['normal', 'homing', 'splitter', 'zigzag', 'sniper', 'giant', 'ghost', 'tank'],
+      spikeDesc: '30번 때려야 파괴되는 체급 가시 & 유령 가시 동시 출현!'
+    },
+    {
+      id: 5,
+      themeId: 'nebula',
+      themeIcon: '🌌',
+      shortTitle: '심연의 성운 코어',
+      name: 'STAGE 5 · 심연의 성운 코어',
+      themeDesc: '🌌 테마 배경: 은하수 별빛과 회전하는 심연의 우주 성운 중심부',
+      titleColor: 'text-violet-300',
+      badgeStyle: 'bg-violet-500/25 border-violet-400 text-violet-200',
+      bgTop: '#040310',
+      bgBottom: '#15082b',
+      gridColor: 'rgba(167, 139, 250, 0.09)',
+      accentColor: '#a78bfa',
+      targetSec: 600,
+      reward: 50000,
+      diffLabel: '악몽 (NIGHTMARE)',
+      diffColor: 'text-rose-400',
+      spawnBase: 0.45,
+      spawnMin: 0.14,
+      speedMult: 1.38,
+      allowedSpikes: ['normal', 'homing', 'splitter', 'zigzag', 'sniper', 'giant', 'ghost', 'tank'],
+      spikeDesc: '8종 모든 가시 총출동 · 극한의 생성 속도와 탄속!'
+    }
+  ];
 
-// ==========================================
-// 2. 저장 데이터 및 서버 동기화
-// ==========================================
-let saveData = {
-  playerId: localStorage.getItem('spike_player_id') || ('p_' + Math.random().toString(36).slice(2, 11)),
-  nickname: localStorage.getItem('spike_nickname') || '익명생존자',
-  serverUrl: localStorage.getItem('spike_server_url') || (window.location.protocol.startsWith('http') ? window.location.origin : ''),
-  gold: Number(localStorage.getItem('spike_gold') ?? 200),
-  cards: JSON.parse(localStorage.getItem('spike_cards') || '{}'),
-  clearedStages: JSON.parse(localStorage.getItem('spike_cleared') || '[]')
-};
-localStorage.setItem('spike_player_id', saveData.playerId);
+  // --- Safe Web Audio Synthesizer ---
+  let audioCtx = null;
+  let soundMuted = false;
 
-function persistLocal() {
-  localStorage.setItem('spike_nickname', saveData.nickname);
-  localStorage.setItem('spike_server_url', saveData.serverUrl);
-  localStorage.setItem('spike_gold', String(saveData.gold));
-  localStorage.setItem('spike_cards', JSON.stringify(saveData.cards));
-  localStorage.setItem('spike_cleared', JSON.stringify(saveData.clearedStages));
-  updateGoldUI();
-}
+  function playTone(freq, type = 'sine', duration = 0.09, vol = 0.07, delay = 0) {
+    if (soundMuted) return;
+    try {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+      }
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+      const now = audioCtx.currentTime + delay;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(vol, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + duration);
+    } catch (e) {}
+  }
 
-async function syncWithServer(mode = 'save') {
-  const base = saveData.serverUrl.trim().replace(/\/+$/, '');
-  if (!base) return;
-  try {
-    if (mode === 'load') {
+  // --- 10 Stackable Skills + Balanced LV.5 Evolution Definitions ---
+  const SKILLS = [
+    {
+      id: 'shield',
+      name: '회전 방패',
+      icon: '🛡️',
+      evoName: '태양의 고리',
+      evoIcon: '☀️',
+      desc: '플라즈마 궤적과 함께 공전하는 방패 구체가 가시를 타격합니다.',
+      evoDesc: '[각성] 태양 방패 6개와 보조 플라즈마 고리가 주변 가시를 견제합니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 태양 구체 6개 · 반경 ${Math.round(92 * amp)}`
+        : `방패 ${Math.min(5, 1 + Math.floor((lv + 1) / 2))}개 · 반경 ${Math.round((56 + lv * 5) * amp)}`
+    },
+    {
+      id: 'laser',
+      name: '자동 레이저',
+      icon: '⚡',
+      evoName: '궤도 이온 캐논',
+      evoIcon: '🛰️',
+      desc: '이중 코어 고출력 빔으로 가까운 가시를 자동 사격합니다.',
+      evoDesc: '[각성] 4갈래 강화 이온 빔으로 여러 가시를 동시에 타격합니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 4갈래 강화 빔 · 연사 속도 증가`
+        : `동시 조준 ${Math.min(3, 1 + Math.floor(lv / 2))}발 · 쿨타임 ${Math.max(0.24, (0.85 - lv * 0.08) / amp).toFixed(2)}초`
+    },
+    {
+      id: 'aura',
+      name: '충격파 오라',
+      icon: '🌀',
+      evoName: '초신성 펄스',
+      evoIcon: '🌌',
+      desc: '이중 그라데이션 충격파를 방출해 주변 가시에 피해를 줍니다.',
+      evoDesc: '[각성] 확장된 이중 파동이 더 넓은 범위의 가시를 타격합니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 파동 반경 ${Math.round(215 * amp)} · 쿨타임 단축`
+        : `반경 ${Math.round((105 + lv * 20) * amp)} · 위력 x${amp.toFixed(1)}`
+    },
+    {
+      id: 'boots',
+      name: '신속 부츠',
+      icon: '👟',
+      evoName: '광속 질주',
+      evoIcon: '⚡',
+      desc: '이동 속도가 상승하고 이동 시 네온 잔상이 생성됩니다.',
+      evoDesc: '[각성] 이동 속도가 추가로 빨라지고 이동 잔상이 약한 가시를 견제합니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 이동 속도 +${Math.round(80 * amp)}% · 잔상 접촉 타격`
+        : `이동 속도 +${Math.round(lv * 15 * amp)}%`
+    },
+    {
+      id: 'magnet',
+      name: '보석 자석',
+      icon: '🧲',
+      evoName: '중력 인력장',
+      evoIcon: '🧲',
+      desc: '자력선 파동으로 경험치 보석과 골드를 끌어당깁니다.',
+      evoDesc: '[각성] 매우 넓은 범위의 보석을 끌어당기며 근접 가시를 살짝 늦춥니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 흡수 반경 ${Math.round(420 * amp)} + 근접 15% 감속`
+        : `흡수 반경 ${Math.round((95 + lv * 50) * amp)}`
+    },
+    {
+      id: 'vitality',
+      name: '생명력 강화',
+      icon: '❤️',
+      evoName: '불멸의 심장',
+      evoIcon: '💖',
+      desc: '최대 체력이 증가하고 치유 파동과 함께 체력 1칸을 회복합니다.',
+      evoDesc: '[각성] 최대 체력 +1 및 15초마다 체력을 1칸 자동 재생합니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 최대 체력 +1 & 15초마다 1칸 재생`
+        : `최대 체력 +1 & 즉시 회복`
+    },
+    {
+      id: 'flame',
+      name: '화염 장판',
+      icon: '🔥',
+      evoName: '지옥불 폭발',
+      evoIcon: '🌋',
+      desc: '이동 경로에 다층 네온 불꽃 장판을 남겨 가시를 태웁니다.',
+      evoDesc: '[각성] 넓어진 화염 장판이 소멸할 때 작은 불꽃 폭발을 일으킵니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 장판 반경 ${Math.round(40 * amp)} + 소멸 불꽃 폭발`
+        : `장판 반경 ${Math.round((22 + lv * 3.5) * amp)} · 지속 ${(1.7 + lv * 0.25).toFixed(1)}초`
+    },
+    {
+      id: 'chain',
+      name: '번개 연쇄',
+      icon: '🌩️',
+      evoName: '뇌신의 심판',
+      evoIcon: '🌩️',
+      desc: '다중 분기 고압 전류가 가시 무리를 연쇄 감전시킵니다.',
+      evoDesc: '[각성] 최대 8연쇄 전격이 더 빠른 주기로 내리꽂힙니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 최대 8연쇄 뇌전 · 쿨타임 1.35초`
+        : `연쇄 타격 ${Math.min(6, Math.floor((3 + lv) * amp))}회`
+    },
+    {
+      id: 'chrono',
+      name: '시간 왜곡장',
+      icon: '⏳',
+      evoName: '시간 지연구역',
+      evoIcon: '⏳',
+      desc: '시계 룬 역장을 펼쳐 영역 내 가시의 속도를 늦춥니다.',
+      evoDesc: '[각성] 확장된 시계 역장 내 가시의 이동 속도를 62% 감속시킵니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 반경 ${Math.round(215 * amp)} · 가시 속도 62% 감속`
+        : `감속 반경 ${Math.round((125 + lv * 18) * amp)} · 감속 ${Math.min(55, Math.round((28 + lv * 5) * amp))}%`
+    },
+    {
+      id: 'pulse',
+      name: '위기 회피 펄스',
+      icon: '💥',
+      evoName: '수호의 방벽',
+      evoIcon: '💥',
+      desc: '가시 접근 직전 황금 충격파와 짧은 무적 보호막을 발동합니다.',
+      evoDesc: '[각성] 강화된 수호 충격파가 주변 가시를 밀어내고 1.0초 무적을 부여합니다.',
+      stat: (lv, amp) => lv >= 5
+        ? `각성: 폭발 반경 ${Math.round(205 * amp)} · 1.0초 무적`
+        : `폭발 반경 ${Math.round(145 * amp)} · 재사용 ${Math.max(2.6, (6.2 - lv * 0.45) / amp).toFixed(1)}초`
+    }
+  ];
+
+  // --- Persistent Storage ---
+  const STORAGE_KEY = 'spike_survivor_data_v6';
+  let saveData = {
+    coins: 200,
+    cards: [],
+    clearedStages: []
+  };
+
+  let selectedStageId = 1;
+
+  function roundMult(val) {
+    return Math.round(val * 10) / 10;
+  }
+
+  function loadData() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('spike_survivor_data_v5') || localStorage.getItem('spike_survivor_data_v4');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (typeof parsed.coins === 'number') saveData.coins = parsed.coins;
+        if (Array.isArray(parsed.clearedStages)) saveData.clearedStages = parsed.clearedStages;
+        if (Array.isArray(parsed.cards)) {
+          saveData.cards = parsed.cards.map(c => {
+            if (typeof c.mult === 'number') return { skillId: c.skillId, mult: roundMult(c.mult) };
+            const legacyMap = { 1: 1.1, 2: 1.3, 3: 1.5, 4: 1.8 };
+            return { skillId: c.skillId, mult: legacyMap[c.rarity] || 1.1 };
+          });
+        }
+      }
+    } catch (e) {}
+    syncPersistentUI();
+    renderStageSelector();
+    if (typeof syncServerSave === 'function') syncServerSave();
+  }
+
+  function persistData() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+    } catch (e) {}
+    syncPersistentUI();
+    renderStageSelector();
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = Math.floor(sec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function syncPersistentUI() {
+    document.getElementById('startCoinsText').textContent = saveData.coins.toLocaleString();
+    document.getElementById('shopCoinsText').textContent = saveData.coins.toLocaleString();
+  }
+
+  function renderStageSelector() {
+    const grid = document.getElementById('stageGrid');
+    grid.innerHTML = '';
+
+    STAGES.forEach(st => {
+      const isSelected = st.id === selectedStageId;
+      const isCleared = saveData.clearedStages.includes(st.id);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `stage-btn ${isSelected ? 'selected' : ''} rounded-xl p-1.5 sm:p-2 text-center flex flex-col items-center justify-center gap-0.5 cursor-pointer`;
+      btn.innerHTML = `
+        <div class="text-sm leading-none">${st.themeIcon}</div>
+        <div class="font-orbitron font-black text-[11px] ${isSelected ? 'text-cyan-300' : 'text-slate-200'}">ST.${st.id}</div>
+        <div class="text-[9px] font-bold text-slate-300 truncate w-full">${st.shortTitle}</div>
+        <div class="text-[9px] font-bold text-slate-400">${Math.floor(st.targetSec / 60)}분</div>
+        <div class="text-[9px] font-black ${isCleared ? 'text-emerald-400' : 'text-amber-300'}">
+          ${isCleared ? '✔ 클리어' : `${(st.reward / 1000).toFixed(1).replace('.0', '')}k G`}
+        </div>
+      `;
+      btn.addEventListener('click', () => {
+        selectedStageId = st.id;
+        renderStageSelector();
+        playTone(620, 'sine', 0.06, 0.05);
+      });
+      grid.appendChild(btn);
+    });
+
+    const cur = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
+    const titleEl = document.getElementById('stageDetailTitle');
+    titleEl.textContent = cur.name;
+    titleEl.className = `font-black text-sm ${cur.titleColor}`;
+    document.getElementById('stageDetailReward').textContent = `클리어 +${cur.reward.toLocaleString()} G`;
+    document.getElementById('stageDetailTheme').textContent = cur.themeDesc;
+    document.getElementById('stageDetailGoal').innerHTML = `⏱️ 목표 생존 시간: <b class="text-white">${Math.floor(cur.targetSec / 60)}분 (${formatTime(cur.targetSec)})</b> · 난이도: <b class="${cur.diffColor}">${cur.diffLabel}</b>`;
+    document.getElementById('stageDetailSpikes').textContent = `출현 가시: ${cur.spikeDesc}`;
+    document.getElementById('startBtnLabel').textContent = `${cur.themeIcon} STAGE ${cur.id} · ${cur.shortTitle} 출격`;
+  }
+
+  function getCardMultiplier(skillId) {
+    let best = 1.0;
+    for (const c of saveData.cards) {
+      if (c.skillId === skillId && c.mult > best) {
+        best = c.mult;
+      }
+    }
+    return roundMult(best);
+  }
+
+  function getCardTierStyle(mult) {
+    if (mult >= 1.8) return { border: '#facc15', text: '#fef08a', glow: 'rgba(250, 204, 21, 0.5)' };
+    if (mult >= 1.5) return { border: '#c084fc', text: '#e9d5ff', glow: 'rgba(192, 132, 252, 0.42)' };
+    if (mult >= 1.3) return { border: '#38bdf8', text: '#7dd3fc', glow: 'rgba(56, 189, 248, 0.32)' };
+    return { border: '#94a3b8', text: '#e2e8f0', glow: 'rgba(148, 163, 184, 0.15)' };
+  }
+
+  // --- Canvas Resize ---
+  let W = window.innerWidth;
+  let H = window.innerHeight;
+  function resizeCanvas() {
+    W = canvas.width = window.innerWidth || 800;
+    H = canvas.height = window.innerHeight || 600;
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // --- Game State & Timers ---
+  let state = 'START'; // START, PLAYING, LEVELUP, PAUSED, GAMEOVER, CLEAR
+  let lastTimestamp = 0;
+  let elapsed = 0;
+  let kills = 0;
+  let runCoins = 0;
+  let shakeTimer = 0;
+  let warnBeepTimer = 0;
+  let levelFlashAlpha = 0;
+  let evoToastTimer = null;
+
+  let spawnTimer = 0;
+  let laserTimer = 0;
+  let auraTimer = 0;
+  let flameTimer = 0;
+  let chainTimer = 0;
+  let afterImageTimer = 0;
+  let magnetWaveTimer = 0;
+  let regenTimer = 15.0;
+  let pulseCooldown = 0;
+  let shieldAngle = 0;
+
+  const player = {
+    x: W / 2,
+    y: H / 2,
+    r: 14,
+    baseSpeed: 255,
+    hp: 3,
+    maxHp: 3,
+    invuln: 0,
+    xp: 0,
+    nextXp: 6,
+    level: 1,
+    skills: {},
+    idleTimer: 0,
+    graceTimer: 0.65
+  };
+
+  let spikes = [];
+  let gems = [];
+  let coins = [];
+  let particles = [];
+  let fireZones = [];
+  let lightningArcs = [];
+  let laserBeams = [];
+  let shockwaves = [];
+  let afterImages = [];
+  let shieldTrails = [];
+  let healWaves = [];
+  let ambientItems = [];
+
+  function initStageAmbience(stage) {
+    ambientItems = [];
+    const count = stage.themeId === 'nebula' ? 75 : 38;
+    for (let i = 0; i < count; i++) {
+      ambientItems.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: 1.2 + Math.random() * 2.8,
+        vx: (Math.random() - 0.5) * 24,
+        vy: stage.themeId === 'fortress' ? -(22 + Math.random() * 38) : (Math.random() - 0.5) * 18,
+        phase: Math.random() * Math.PI * 2,
+        speed: 1.5 + Math.random() * 2.5
+      });
+    }
+  }
+  initStageAmbience(STAGES[0]);
+
+  // --- Controls (Keyboard + Mobile Pointer Virtual Joystick) ---
+  const keys = {};
+  window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (e.code === 'Escape' || e.code === 'KeyP') {
+      if (state === 'PLAYING' || state === 'PAUSED') togglePause();
+    }
+    if ((e.code === 'Enter' || e.code === 'Space') && state === 'START' && document.getElementById('shopOverlay').classList.contains('hidden')) {
+      e.preventDefault();
+      startGame();
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    keys[e.code] = false;
+  });
+
+  const joystick = {
+    active: false,
+    pointerId: null,
+    ox: 0,
+    oy: 0,
+    dx: 0,
+    dy: 0,
+    maxR: 48
+  };
+
+  canvas.addEventListener('pointerdown', (e) => {
+    if (state !== 'PLAYING') return;
+    joystick.active = true;
+    joystick.pointerId = e.pointerId;
+    joystick.ox = e.clientX;
+    joystick.oy = e.clientY;
+    joystick.dx = 0;
+    joystick.dy = 0;
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if (!joystick.active || e.pointerId !== joystick.pointerId) return;
+    const vx = e.clientX - joystick.ox;
+    const vy = e.clientY - joystick.oy;
+    const dist = Math.hypot(vx, vy);
+    if (dist > 4) {
+      const clamped = Math.min(dist, joystick.maxR);
+      joystick.dx = (vx / dist) * (clamped / joystick.maxR);
+      joystick.dy = (vy / dist) * (clamped / joystick.maxR);
+    } else {
+      joystick.dx = 0;
+      joystick.dy = 0;
+    }
+  });
+
+  function releaseJoy(e) {
+    if (e.pointerId === joystick.pointerId) {
+      joystick.active = false;
+      joystick.pointerId = null;
+      joystick.dx = 0;
+      joystick.dy = 0;
+    }
+  }
+  canvas.addEventListener('pointerup', releaseJoy);
+  canvas.addEventListener('pointercancel', releaseJoy);
+
+  function showEvolutionBanner(sk) {
+    const box = document.getElementById('evoBannerBox');
+    const txt = document.getElementById('evoBannerText');
+    txt.textContent = `${sk.icon} ${sk.name} → ${sk.evoIcon} ${sk.evoName} 각성!`;
+    box.classList.remove('hidden', 'evo-toast');
+    void box.offsetWidth;
+    box.classList.add('evo-toast');
+
+    if (evoToastTimer) clearTimeout(evoToastTimer);
+    evoToastTimer = setTimeout(() => {
+      box.classList.add('hidden');
+    }, 2600);
+
+    playTone(523.25, 'triangle', 0.14, 0.1, 0);
+    playTone(659.25, 'triangle', 0.14, 0.1, 0.09);
+    playTone(783.99, 'triangle', 0.16, 0.11, 0.18);
+    playTone(1046.5, 'sine', 0.35, 0.13, 0.27);
+  }
+
+  function returnToStageMenu() {
+    state = 'START';
+    document.getElementById('hud').classList.add('hidden');
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    document.getElementById('gameOverOverlay').classList.add('hidden');
+    document.getElementById('stageClearOverlay').classList.add('hidden');
+    document.getElementById('levelUpOverlay').classList.add('hidden');
+    document.getElementById('idleWarningBox').classList.add('hidden');
+    document.getElementById('startOverlay').classList.remove('hidden');
+    renderStageSelector();
+  }
+
+  // --- Core Game Flow ---
+  function startGame() {
+    resizeCanvas();
+    const curStage = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
+
+    document.getElementById('startOverlay').classList.add('hidden');
+    document.getElementById('gameOverOverlay').classList.add('hidden');
+    document.getElementById('stageClearOverlay').classList.add('hidden');
+    document.getElementById('levelUpOverlay').classList.add('hidden');
+    document.getElementById('pauseOverlay').classList.add('hidden');
+    document.getElementById('shopOverlay').classList.add('hidden');
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('idleWarningBox').classList.add('hidden');
+
+    const hudBadge = document.getElementById('stageHudBadge');
+    hudBadge.textContent = `${curStage.themeIcon} STAGE ${curStage.id} · ${curStage.shortTitle}`;
+    hudBadge.className = `px-2.5 py-0.5 rounded-lg border font-extrabold text-xs ${curStage.badgeStyle}`;
+    document.getElementById('targetTimeText').textContent = `/ ${formatTime(curStage.targetSec)}`;
+
+    initStageAmbience(curStage);
+
+    player.x = W / 2;
+    player.y = H / 2;
+    player.maxHp = 3;
+    player.hp = 3;
+    player.invuln = 0.8;
+    player.xp = 0;
+    player.nextXp = 6;
+    player.level = 1;
+    player.skills = { laser: 1 };
+    player.idleTimer = 0;
+    player.graceTimer = 0.65;
+
+    elapsed = 0;
+    kills = 0;
+    runCoins = 0;
+    shakeTimer = 0;
+    warnBeepTimer = 0;
+    levelFlashAlpha = 0;
+
+    spikes = [];
+    gems = [];
+    coins = [];
+    particles = [];
+    fireZones = [];
+    lightningArcs = [];
+    laserBeams = [];
+    shockwaves = [];
+    afterImages = [];
+    shieldTrails = [];
+    healWaves = [];
+
+    joystick.active = false;
+    joystick.dx = 0;
+    joystick.dy = 0;
+
+    spawnTimer = 0.35;
+    laserTimer = 0;
+    auraTimer = 0;
+    flameTimer = 0;
+    chainTimer = 0;
+    afterImageTimer = 0;
+    magnetWaveTimer = 0;
+    regenTimer = 15.0;
+    pulseCooldown = 0;
+    shieldAngle = 0;
+
+    for (let i = 0; i < 10; i++) {
+      const isGreen = i >= 7;
+      gems.push({
+        x: Math.random() * (W - 100) + 50,
+        y: Math.random() * (H - 100) + 50,
+        val: isGreen ? 3 : 1,
+        tier: isGreen ? 2 : 1,
+        pulse: Math.random() * Math.PI * 2,
+        pulling: false
+      });
+    }
+
+    updateHud();
+    state = 'PLAYING';
+    lastTimestamp = performance.now();
+    playTone(540, 'triangle', 0.14, 0.09);
+  }
+
+  function togglePause() {
+    if (state === 'PLAYING') {
+      state = 'PAUSED';
+      document.getElementById('pauseOverlay').classList.remove('hidden');
+    } else if (state === 'PAUSED') {
+      state = 'PLAYING';
+      document.getElementById('pauseOverlay').classList.add('hidden');
+      lastTimestamp = performance.now();
+    }
+  }
+
+  function triggerStageClear() {
+    if (state === 'CLEAR') return;
+    state = 'CLEAR';
+    document.getElementById('idleWarningBox').classList.add('hidden');
+
+    const curStage = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
+    const bonusGold = curStage.reward;
+    const totalEarned = bonusGold + runCoins;
+
+    saveData.coins += totalEarned;
+    if (!saveData.clearedStages.includes(curStage.id)) {
+      saveData.clearedStages.push(curStage.id);
+    }
+    persistData();
+
+    document.getElementById('clearTitleText').textContent = `STAGE ${curStage.id} CLEAR!`;
+    document.getElementById('clearDescText').textContent = `${Math.floor(curStage.targetSec / 60)}분 생존 목표를 완벽히 달성했습니다!`;
+    document.getElementById('clearBonusGoldText').textContent = `+${bonusGold.toLocaleString()} G`;
+    document.getElementById('clearRunGoldText').textContent = `+${runCoins.toLocaleString()} G`;
+    document.getElementById('clearTotalGoldText').textContent = `+${totalEarned.toLocaleString()} G`;
+
+    const nextBtn = document.getElementById('nextStageBtn');
+    const nextLabel = document.getElementById('nextStageBtnLabel');
+    if (curStage.id < STAGES.length) {
+      nextBtn.classList.remove('hidden');
+      nextLabel.textContent = `STAGE ${curStage.id + 1} 도전하기`;
+    } else {
+      nextBtn.classList.add('hidden');
+    }
+
+    if (typeof submitServerRanking === 'function') submitServerRanking(curStage.id, elapsed, true, kills);
+    document.getElementById('stageClearOverlay').classList.remove('hidden');
+
+    playTone(523.25, 'triangle', 0.15, 0.11, 0);
+    playTone(659.25, 'triangle', 0.15, 0.11, 0.1);
+    playTone(783.99, 'triangle', 0.18, 0.12, 0.2);
+    playTone(1046.5, 'sine', 0.45, 0.14, 0.3);
+  }
+
+  function triggerGameOver(reason) {
+    if (state === 'GAMEOVER') return;
+    state = 'GAMEOVER';
+    document.getElementById('idleWarningBox').classList.add('hidden');
+
+    const survivalBonus = Math.floor(elapsed * 2);
+    const totalEarned = runCoins + survivalBonus;
+    saveData.coins += totalEarned;
+    persistData();
+
+    document.getElementById('deathReasonText').textContent = reason;
+    document.getElementById('resTimeText').textContent = formatTime(elapsed);
+    document.getElementById('resKillsText').textContent = kills;
+    document.getElementById('resCoinsText').textContent = `+${totalEarned.toLocaleString()} G`;
+    if (typeof submitServerRanking === 'function') submitServerRanking(selectedStageId, elapsed, false, kills);
+    document.getElementById('gameOverOverlay').classList.remove('hidden');
+
+    playTone(220, 'sawtooth', 0.2, 0.12, 0);
+    playTone(150, 'sawtooth', 0.35, 0.12, 0.14);
+  }
+
+  // --- Stage-Based Spike Spawning (8 Types) ---
+  function spawnSpike() {
+    const curStage = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
+    const allowed = curStage.allowedSpikes;
+
+    const pad = 34;
+    const side = Math.floor(Math.random() * 4);
+    let x, y;
+    if (side === 0) { x = Math.random() * W; y = -pad; }
+    else if (side === 1) { x = W + pad; y = Math.random() * H; }
+    else if (side === 2) { x = Math.random() * W; y = H + pad; }
+    else { x = -pad; y = Math.random() * H; }
+
+    const angle = Math.atan2(player.y - y, player.x - x);
+    const timeRatio = Math.min(1, elapsed / curStage.targetSec);
+    const diffScale = curStage.speedMult * (1 + timeRatio * 0.65);
+
+    let type = 'normal';
+    const roll = Math.random();
+    if (roll > 0.32) {
+      const candidates = allowed.filter((t, idx) => {
+        if (t === 'normal') return true;
+        if (t === 'ghost' && elapsed < 15 && curStage.id === 3) return false;
+        if (t === 'tank' && elapsed < 20 && curStage.id === 4) return false;
+        return elapsed >= idx * 3;
+      });
+      type = candidates[Math.floor(Math.random() * candidates.length)] || 'normal';
+    }
+
+    const baseSpd = (145 + Math.random() * 50) * diffScale;
+
+    if (type === 'normal') {
+      spikes.push({ type, x, y, vx: Math.cos(angle) * baseSpd, vy: Math.sin(angle) * baseSpd, r: 9, color: '#ef4444', hp: 1, maxHp: 1, age: 0, immune: false });
+    } else if (type === 'homing') {
+      spikes.push({ type, x, y, vx: Math.cos(angle) * baseSpd * 0.85, vy: Math.sin(angle) * baseSpd * 0.85, r: 10, color: '#a855f7', hp: 1, maxHp: 1, age: 0, immune: false });
+    } else if (type === 'giant') {
+      spikes.push({ type, x, y, vx: Math.cos(angle) * baseSpd * 0.62, vy: Math.sin(angle) * baseSpd * 0.62, r: 21, color: '#f97316', hp: 3, maxHp: 3, age: 0, immune: false });
+    } else if (type === 'ghost') {
+      spikes.push({ type, x, y, vx: Math.cos(angle) * baseSpd * 0.86, vy: Math.sin(angle) * baseSpd * 0.86, r: 11, color: '#bae6fd', hp: 9999, maxHp: 9999, age: 0, immune: true });
+    } else if (type === 'tank') {
+      spikes.push({ type, x, y, vx: Math.cos(angle) * baseSpd * 0.44, vy: Math.sin(angle) * baseSpd * 0.44, r: 28, color: '#e11d48', hp: 30, maxHp: 30, age: 0, immune: false });
+    } else if (type === 'splitter') {
+      spikes.push({ type, x, y, vx: Math.cos(angle) * baseSpd * 0.92, vy: Math.sin(angle) * baseSpd * 0.92, r: 12, color: '#06b6d4', hp: 1, maxHp: 1, age: 0, splitDone: false, immune: false });
+    } else if (type === 'zigzag') {
+      spikes.push({ type, x, y, baseAngle: angle, speed: baseSpd * 0.94, r: 9, color: '#84cc16', hp: 1, maxHp: 1, age: 0, immune: false });
+    } else if (type === 'sniper') {
+      const sx = Math.max(26, Math.min(W - 26, x));
+      const sy = Math.max(26, Math.min(H - 26, y));
+      const aimAngle = Math.atan2(player.y - sy, player.x - sx);
+      spikes.push({ type, x: sx, y: sy, aimAngle, vx: 0, vy: 0, speed: baseSpd * 2.4, r: 10, color: '#facc15', hp: 1, maxHp: 1, age: 0, aimTime: 0.82, immune: false });
+      playTone(960, 'sawtooth', 0.08, 0.035);
+    }
+  }
+
+  function addParticles(x, y, color, count = 8) {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 45 + Math.random() * 140;
+      particles.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 0.32 + Math.random() * 0.2, color });
+    }
+  }
+
+  function destroySpike(idx) {
+    const s = spikes[idx];
+    if (!s || s.immune) return;
+    kills++;
+    addParticles(s.x, s.y, s.color, s.type === 'tank' ? 22 : 11);
+
+    let tier = 1;
+    let val = 1;
+    if (s.type === 'tank' || s.type === 'giant') {
+      tier = 3;
+      val = 5;
+    } else if (s.type === 'sniper' || s.type === 'splitter' || Math.random() < 0.32) {
+      tier = 2;
+      val = 3;
+    }
+    gems.push({
+      x: s.x,
+      y: s.y,
+      val,
+      tier,
+      pulse: Math.random() * Math.PI * 2,
+      pulling: false
+    });
+
+    if (s.type === 'tank') {
+      for (let k = 0; k < 4; k++) {
+        gems.push({
+          x: s.x + (Math.random() - 0.5) * 34,
+          y: s.y + (Math.random() - 0.5) * 34,
+          val: 3,
+          tier: 2,
+          pulse: Math.random() * Math.PI * 2,
+          pulling: false
+        });
+        coins.push({
+          x: s.x + (Math.random() - 0.5) * 30,
+          y: s.y + (Math.random() - 0.5) * 30,
+          val: 15
+        });
+      }
+    } else if (s.type === 'giant' || Math.random() < 0.25) {
+      gems.push({
+        x: s.x + (Math.random() - 0.5) * 18,
+        y: s.y + (Math.random() - 0.5) * 18,
+        val: 1,
+        tier: 1,
+        pulse: Math.random() * Math.PI * 2,
+        pulling: false
+      });
+    }
+
+    if (Math.random() < 0.42) {
+      coins.push({ x: s.x + (Math.random() - 0.5) * 16, y: s.y + (Math.random() - 0.5) * 16, val: 5 * selectedStageId });
+    }
+    spikes.splice(idx, 1);
+  }
+
+  function damageSpike(idx, dmg = 1) {
+    const s = spikes[idx];
+    if (!s || s.immune) return;
+
+    if (s.type === 'tank') {
+      s.hp -= 1;
+      addParticles(s.x, s.y, '#fda4af', 3);
+      if (s.hp <= 0) destroySpike(idx);
+      return;
+    }
+
+    s.hp -= dmg;
+    if (s.hp <= 0) {
+      destroySpike(idx);
+    } else {
+      addParticles(s.x, s.y, '#ffffff', 4);
+    }
+  }
+
+  // --- Level Up Selection (Excludes Awakened LV.5+ Skills) ---
+  function openLevelUpModal() {
+    state = 'LEVELUP';
+    joystick.active = false;
+    joystick.dx = 0;
+    joystick.dy = 0;
+
+    const availableSkills = SKILLS.filter(sk => (player.skills[sk.id] || 0) < 5);
+    const choices = [...availableSkills].sort(() => Math.random() - 0.5).slice(0, 3);
+    const container = document.getElementById('levelUpCards');
+    container.innerHTML = '';
+
+    if (choices.length === 0) {
+      const bonuses = [
+        { icon: '💖', name: '완전 회복 & 보호막', desc: '체력을 모두 회복하고 2.0초간 무적 방벽을 얻습니다.', action: () => {
+          player.hp = player.maxHp;
+          player.invuln = Math.max(player.invuln, 2.0);
+          healWaves.push({ x: player.x, y: player.y, r: 12, maxR: 150, life: 0.5 });
+        }},
+        { icon: '🪙', name: '황금 보급 상자', desc: '즉시 보너스 골드 +150 G를 획득합니다.', action: () => {
+          runCoins += 150;
+          shockwaves.push({ x: player.x, y: player.y, r: 12, maxR: 130, life: 0.4, maxLife: 0.4, color: '#facc15', fill: true });
+        }},
+        { icon: '💥', name: '전역 정화 충격파', desc: '유령 가시를 제외한 일반 가시들을 소멸시킵니다.', action: () => {
+          shockwaves.push({ x: player.x, y: player.y, r: 14, maxR: 500, life: 0.45, maxLife: 0.45, color: '#38bdf8', fill: true });
+          for (let i = spikes.length - 1; i >= 0; i--) {
+            if (!spikes[i].immune && spikes[i].type !== 'tank') destroySpike(i);
+          }
+        }}
+      ];
+      bonuses.forEach(b => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = 'skill-card evo-ready rounded-2xl p-4 text-center flex flex-col items-center justify-between gap-2 cursor-pointer';
+        card.innerHTML = `
+          <div class="text-3xl">${b.icon}</div>
+          <div class="font-black text-base text-amber-300">${b.name}</div>
+          <span class="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-orbitron text-[11px] font-black">ALL AWAKENED BONUS</span>
+          <p class="text-xs text-slate-300 leading-relaxed">${b.desc}</p>
+        `;
+        card.addEventListener('click', () => {
+          b.action();
+          document.getElementById('levelUpOverlay').classList.add('hidden');
+          state = 'PLAYING';
+          player.graceTimer = 0.65;
+          lastTimestamp = performance.now();
+          updateHud();
+          playTone(760, 'sine', 0.18, 0.1);
+        });
+        container.appendChild(card);
+      });
+      document.getElementById('levelUpOverlay').classList.remove('hidden');
+      playTone(580, 'triangle', 0.22, 0.1);
+      return;
+    }
+
+    choices.forEach((sk) => {
+      const curLv = player.skills[sk.id] || 0;
+      const nextLv = curLv + 1;
+      const isEvolvingNow = nextLv === 5;
+      const amp = getCardMultiplier(sk.id);
+
+      const displayIcon = isEvolvingNow ? sk.evoIcon : sk.icon;
+      const displayName = isEvolvingNow ? sk.evoName : sk.name;
+      const displayDesc = isEvolvingNow ? sk.evoDesc : sk.desc;
+
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = `skill-card ${isEvolvingNow ? 'evo-ready' : ''} rounded-2xl p-4 text-center flex flex-col items-center justify-between gap-2 cursor-pointer`;
+      card.innerHTML = `
+        <div class="text-3xl drop-shadow-[0_0_12px_rgba(56,189,248,0.65)]">${displayIcon}</div>
+        <div class="font-black text-base ${isEvolvingNow ? 'text-amber-300' : 'text-white'}">${displayName}</div>
+        <span class="px-2.5 py-0.5 rounded-full ${isEvolvingNow ? 'bg-amber-400 text-slate-950 font-black' : 'bg-cyan-500/20 text-cyan-300'} font-orbitron text-[11px] font-bold">
+          ${isEvolvingNow ? '★ 5장 각성! ★' : `LV.${curLv} → LV.${nextLv} (${nextLv}/5)`}
+        </span>
+        <p class="text-xs text-slate-300 leading-relaxed">${displayDesc}</p>
+        <div class="text-[11px] font-bold ${isEvolvingNow ? 'text-amber-300 border-amber-400/40' : 'text-cyan-300 border-cyan-500/25'} bg-slate-950/70 px-2.5 py-1 rounded-lg border w-full">
+          ${sk.stat(nextLv, amp)}
+        </div>
+        ${amp > 1 ? `<div class="text-[11px] font-bold text-amber-300">✨ 인벤토리 증폭 x${amp.toFixed(1)}</div>` : ''}
+      `;
+
+      card.addEventListener('click', () => {
+        player.skills[sk.id] = nextLv;
+        if (sk.id === 'vitality') {
+          player.maxHp += 1;
+          player.hp = Math.min(player.maxHp, player.hp + 1);
+          healWaves.push({ x: player.x, y: player.y, r: 10, maxR: 110, life: 0.45 });
+        }
+
+        document.getElementById('levelUpOverlay').classList.add('hidden');
+        state = 'PLAYING';
+        player.graceTimer = 0.65;
+        lastTimestamp = performance.now();
+        updateHud();
+
+        if (isEvolvingNow) {
+          showEvolutionBanner(sk);
+          shockwaves.push({ x: player.x, y: player.y, r: 16, maxR: 190, life: 0.45, maxLife: 0.45, color: '#facc15', fill: true });
+        } else {
+          playTone(680, 'sine', 0.16, 0.09);
+        }
+      });
+
+      container.appendChild(card);
+    });
+
+    document.getElementById('levelUpOverlay').classList.remove('hidden');
+    playTone(580, 'triangle', 0.22, 0.1);
+  }
+
+  // --- Update Loop ---
+  function update(dt) {
+    if (state !== 'PLAYING') return;
+
+    const curStage = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
+    elapsed += dt;
+
+    if (elapsed >= curStage.targetSec) {
+      elapsed = curStage.targetSec;
+      updateHud();
+      triggerStageClear();
+      return;
+    }
+
+    if (shakeTimer > 0) shakeTimer -= dt;
+    if (levelFlashAlpha > 0) levelFlashAlpha = Math.max(0, levelFlashAlpha - dt * 1.8);
+    if (player.invuln > 0) player.invuln -= dt;
+    if (player.graceTimer > 0) player.graceTimer -= dt;
+    if (pulseCooldown > 0) pulseCooldown -= dt;
+
+    // 1. Player Movement
+    let dx = 0, dy = 0;
+    if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+    if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+    if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+
+    if (dx !== 0 || dy !== 0) {
+      const len = Math.hypot(dx, dy);
+      dx /= len;
+      dy /= len;
+    } else if (joystick.active) {
+      dx = joystick.dx;
+      dy = joystick.dy;
+    }
+
+    const inputMag = Math.hypot(dx, dy);
+    const prevX = player.x;
+    const prevY = player.y;
+
+    const bootsLv = player.skills.boots || 0;
+    const bootsEvo = bootsLv >= 5;
+
+    if (inputMag > 0.02) {
+      const bootsAmp = getCardMultiplier('boots');
+      const speedMult = 1 + (bootsEvo ? 0.80 : bootsLv * 0.15) * bootsAmp;
+      player.x += dx * player.baseSpeed * speedMult * dt;
+      player.y += dy * player.baseSpeed * speedMult * dt;
+      player.x = Math.max(player.r + 6, Math.min(W - player.r - 6, player.x));
+      player.y = Math.max(player.r + 6, Math.min(H - player.r - 6, player.y));
+
+      if (bootsLv > 0) {
+        afterImageTimer -= dt;
+        if (afterImageTimer <= 0) {
+          afterImageTimer = bootsEvo ? 0.038 : 0.048;
+          afterImages.push({ x: player.x, y: player.y, r: player.r * (bootsEvo ? 1.18 : 1), life: 0.26, maxLife: 0.26, evo: bootsEvo });
+        }
+        if (bootsEvo) {
+          for (let i = spikes.length - 1; i >= 0; i--) {
+            if (!spikes[i].immune && Math.hypot(spikes[i].x - player.x, spikes[i].y - player.y) < player.r + spikes[i].r + 10) {
+              damageSpike(i, 1 * bootsAmp);
+            }
+          }
+        }
+      }
+    }
+
+    // 2. 1-Second Stillness Check
+    const movedDist = Math.hypot(player.x - prevX, player.y - prevY);
+    const isMoving = inputMag > 0.02 && movedDist > 0.05;
+    const idleBox = document.getElementById('idleWarningBox');
+
+    if (isMoving) {
+      player.idleTimer = 0;
+      warnBeepTimer = 0;
+      idleBox.classList.add('hidden');
+    } else if (player.graceTimer <= 0) {
+      player.idleTimer += dt;
+      idleBox.classList.remove('hidden');
+      const clampedIdle = Math.min(1.0, player.idleTimer);
+      document.getElementById('idleTimerText').textContent = `${clampedIdle.toFixed(1)}s / 1.0s`;
+      document.getElementById('idleBarFill').style.width = `${clampedIdle * 100}%`;
+
+      warnBeepTimer -= dt;
+      if (warnBeepTimer <= 0) {
+        warnBeepTimer = 0.2;
+        playTone(360 + clampedIdle * 340, 'square', 0.06, 0.055);
+      }
+
+      if (player.idleTimer >= 1.0) {
+        triggerGameOver('1초 이상 제자리에 멈춰 있었습니다!');
+        return;
+      }
+    }
+
+    // 3. Stage-Scaled Spike Spawning
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      const stageProgress = elapsed / curStage.targetSec;
+      const batch = 1 + Math.floor(stageProgress * (1 + curStage.id * 0.65));
+      for (let i = 0; i < batch; i++) spawnSpike();
+      spawnTimer = Math.max(curStage.spawnMin, curStage.spawnBase - stageProgress * (curStage.spawnBase - curStage.spawnMin));
+    }
+
+    // 4. Active Skills Execution
+    const shieldLv = player.skills.shield || 0;
+    if (shieldLv > 0) {
+      const evo = shieldLv >= 5;
+      const amp = getCardMultiplier('shield');
+      const orbCount = evo ? 6 : Math.min(5, 1 + Math.floor((shieldLv + 1) / 2));
+      const orbitR = (evo ? 92 : (56 + shieldLv * 5)) * amp;
+      shieldAngle += (evo ? 3.5 : (2.7 + shieldLv * 0.25 * amp)) * dt;
+
+      if (evo) {
+        for (let i = spikes.length - 1; i >= 0; i--) {
+          if (spikes[i].immune) continue;
+          const d = Math.hypot(spikes[i].x - player.x, spikes[i].y - player.y);
+          if (Math.abs(d - orbitR) < spikes[i].r + 8) {
+            damageSpike(i, 1.5 * amp);
+          }
+        }
+      }
+
+      for (let o = 0; o < orbCount; o++) {
+        const a = shieldAngle + (Math.PI * 2 * o) / orbCount;
+        const ox = player.x + Math.cos(a) * orbitR;
+        const oy = player.y + Math.sin(a) * orbitR;
+        shieldTrails.push({ x: ox, y: oy, r: evo ? 10 : 9, life: 0.15, maxLife: 0.15, evo });
+        for (let i = spikes.length - 1; i >= 0; i--) {
+          if (spikes[i].immune) continue;
+          if (Math.hypot(spikes[i].x - ox, spikes[i].y - oy) < spikes[i].r + (evo ? 13 : 11)) {
+            addParticles(ox, oy, evo ? '#facc15' : '#34d399', 4);
+            damageSpike(i, (evo ? 2.2 : 1.6) * amp);
+          }
+        }
+      }
+    }
+
+    const laserLv = player.skills.laser || 0;
+    if (laserLv > 0) {
+      const evo = laserLv >= 5;
+      const amp = getCardMultiplier('laser');
+      laserTimer -= dt;
+      if (laserTimer <= 0) {
+        const validSpikes = spikes
+          .map((s, idx) => ({ s, idx, d: Math.hypot(s.x - player.x, s.y - player.y) }))
+          .filter(item => !item.s.immune && item.d < (evo ? 600 : 500))
+          .sort((a, b) => a.d - b.d);
+
+        if (validSpikes.length > 0) {
+          laserTimer = evo ? Math.max(0.22, 0.45 / amp) : Math.max(0.24, (0.85 - laserLv * 0.08) / amp);
+          const targetCount = evo ? 4 : Math.min(3, 1 + Math.floor(laserLv / 2));
+          const targets = validSpikes.slice(0, targetCount);
+
+          targets.sort((a, b) => b.idx - a.idx).forEach(t => {
+            laserBeams.push({ x1: player.x, y1: player.y, x2: t.s.x, y2: t.s.y, life: 0.16, maxLife: 0.16, evo });
+            addParticles(t.s.x, t.s.y, evo ? '#f43f5e' : '#38bdf8', 5);
+            damageSpike(t.idx, (evo ? 2.2 : 1.5) * amp);
+          });
+          playTone(evo ? 1020 : 880, 'sine', 0.06, 0.035);
+        }
+      }
+    }
+
+    const auraLv = player.skills.aura || 0;
+    if (auraLv > 0) {
+      const evo = auraLv >= 5;
+      const amp = getCardMultiplier('aura');
+      auraTimer -= dt;
+      if (auraTimer <= 0) {
+        auraTimer = evo ? 1.65 : Math.max(1.2, 2.7 - auraLv * 0.2);
+        const maxR = (evo ? 215 : (105 + auraLv * 20)) * amp;
+        shockwaves.push({ x: player.x, y: player.y, r: 12, maxR, life: 0.42, maxLife: 0.42, color: evo ? '#c084fc' : '#38bdf8', fill: true });
+        for (let i = spikes.length - 1; i >= 0; i--) {
+          if (spikes[i].immune) continue;
+          if (Math.hypot(spikes[i].x - player.x, spikes[i].y - player.y) <= maxR) {
+            damageSpike(i, (evo ? 2.4 : 1.8) * amp);
+          }
+        }
+        playTone(evo ? 240 : 300, 'sine', 0.16, 0.05);
+      }
+    }
+
+    const vitLv = player.skills.vitality || 0;
+    if (vitLv >= 5 && player.hp < player.maxHp) {
+      regenTimer -= dt;
+      if (regenTimer <= 0) {
+        regenTimer = 15.0;
+        player.hp = Math.min(player.maxHp, player.hp + 1);
+        healWaves.push({ x: player.x, y: player.y, r: 10, maxR: 95, life: 0.45 });
+        playTone(720, 'sine', 0.15, 0.07);
+      }
+    }
+
+    const flameLv = player.skills.flame || 0;
+    if (flameLv > 0 && isMoving) {
+      const evo = flameLv >= 5;
+      const amp = getCardMultiplier('flame');
+      flameTimer -= dt;
+      if (flameTimer <= 0) {
+        flameTimer = evo ? 0.10 : 0.11;
+        const maxLife = evo ? 2.3 : (1.7 + flameLv * 0.25);
+        fireZones.push({
+          x: player.x,
+          y: player.y,
+          r: (evo ? 40 : (22 + flameLv * 3.5)) * amp,
+          life: maxLife,
+          maxLife,
+          seed: Math.random() * 10,
+          evo
+        });
+      }
+    }
+    for (let i = fireZones.length - 1; i >= 0; i--) {
+      const f = fireZones[i];
+      f.life -= dt;
+      if (Math.random() < 0.26) {
+        particles.push({
+          x: f.x + (Math.random() - 0.5) * f.r,
+          y: f.y + (Math.random() - 0.5) * f.r,
+          vx: (Math.random() - 0.5) * 28,
+          vy: -38 - Math.random() * 42,
+          life: 0.26,
+          color: f.evo ? '#fb7185' : '#facc15'
+        });
+      }
+      if (f.life <= 0) {
+        if (f.evo) {
+          const blastR = f.r * 1.35;
+          shockwaves.push({ x: f.x, y: f.y, r: 8, maxR: blastR, life: 0.25, maxLife: 0.25, color: '#fb923c', fill: true });
+          for (let j = spikes.length - 1; j >= 0; j--) {
+            if (!spikes[j].immune && Math.hypot(spikes[j].x - f.x, spikes[j].y - f.y) < blastR) {
+              damageSpike(j, 1.5);
+            }
+          }
+        }
+        fireZones.splice(i, 1);
+        continue;
+      }
+      for (let j = spikes.length - 1; j >= 0; j--) {
+        if (!spikes[j].immune && Math.hypot(spikes[j].x - f.x, spikes[j].y - f.y) < f.r + spikes[j].r) {
+          damageSpike(j, 1);
+        }
+      }
+    }
+
+    const chainLv = player.skills.chain || 0;
+    if (chainLv > 0) {
+      const evo = chainLv >= 5;
+      const amp = getCardMultiplier('chain');
+      chainTimer -= dt;
+      if (chainTimer <= 0 && spikes.length > 0) {
+        chainTimer = evo ? 1.35 : Math.max(0.85, 2.2 - chainLv * 0.18);
+        const bounces = evo ? Math.min(9, Math.floor(8 * amp)) : Math.min(6, Math.floor((3 + chainLv) * amp));
+        let cx = player.x, cy = player.y;
+        const hitSet = new Set();
+        for (let b = 0; b < bounces; b++) {
+          let bestIdx = -1, bestD = (evo ? 320 : 265) * amp;
+          for (let i = 0; i < spikes.length; i++) {
+            if (spikes[i].immune || hitSet.has(i)) continue;
+            const d = Math.hypot(spikes[i].x - cx, spikes[i].y - cy);
+            if (d < bestD) { bestD = d; bestIdx = i; }
+          }
+          if (bestIdx === -1) break;
+          hitSet.add(bestIdx);
+          const tx = spikes[bestIdx].x;
+          const ty = spikes[bestIdx].y;
+          const pts = [];
+          const segs = 5;
+          for (let s = 0; s <= segs; s++) {
+            const t = s / segs;
+            const jitter = (s === 0 || s === segs) ? 0 : (evo ? 21 : 17);
+            pts.push({
+              x: cx + (tx - cx) * t + (Math.random() - 0.5) * jitter,
+              y: cy + (ty - cy) * t + (Math.random() - 0.5) * jitter
+            });
+          }
+          lightningArcs.push({ pts, life: 0.22, maxLife: 0.22, evo });
+          addParticles(tx, ty, evo ? '#facc15' : '#e879f9', 5);
+          cx = tx;
+          cy = ty;
+        }
+        [...hitSet].sort((a, b) => b - a).forEach(idx => damageSpike(idx, (evo ? 2.2 : 1.8) * amp));
+        if (hitSet.size > 0) playTone(evo ? 1160 : 1040, 'square', 0.08, 0.04);
+      }
+    }
+
+    const chronoLv = player.skills.chrono || 0;
+    const chronoEvo = chronoLv >= 5;
+    const chronoAmp = getCardMultiplier('chrono');
+    const chronoRadius = chronoLv > 0 ? (chronoEvo ? 215 : (125 + chronoLv * 18)) * chronoAmp : 0;
+    const chronoSlow = chronoLv > 0 ? (chronoEvo ? 0.38 : Math.max(0.45, (0.72 - chronoLv * 0.05 * chronoAmp))) : 1;
+
+    const pulseLv = player.skills.pulse || 0;
+    if (pulseLv > 0 && pulseCooldown <= 0) {
+      const evo = pulseLv >= 5;
+      const amp = getCardMultiplier('pulse');
+      const triggerR = evo ? 54 : 46;
+      const danger = spikes.some(s => !s.immune && Math.hypot(s.x - player.x, s.y - player.y) < triggerR + s.r);
+      if (danger) {
+        pulseCooldown = evo ? Math.max(2.6, 3.8 / amp) : Math.max(2.6, (6.2 - pulseLv * 0.45) / amp);
+        player.invuln = Math.max(player.invuln, evo ? 1.0 : 0.75);
+        const blastR = (evo ? 205 : 145) * amp;
+        shockwaves.push({ x: player.x, y: player.y, r: 14, maxR: blastR, life: 0.4, maxLife: 0.4, color: '#facc15', fill: true });
+        for (let i = spikes.length - 1; i >= 0; i--) {
+          if (!spikes[i].immune && Math.hypot(spikes[i].x - player.x, spikes[i].y - player.y) < blastR) {
+            damageSpike(i, 3);
+          }
+        }
+        playTone(480, 'triangle', 0.22, 0.11);
+      }
+    }
+
+    // 5. Update Spikes
+    const magLv = player.skills.magnet || 0;
+    const magEvo = magLv >= 5;
+
+    for (let i = spikes.length - 1; i >= 0; i--) {
+      const s = spikes[i];
+      s.age += dt;
+      const distToPlayer = Math.hypot(s.x - player.x, s.y - player.y);
+
+      const inChrono = !s.immune && chronoLv > 0 && distToPlayer < chronoRadius;
+      const inGrav = !s.immune && magEvo && distToPlayer < 175;
+      const spdFactor = (inChrono ? chronoSlow : 1) * (inGrav ? 0.85 : 1);
+
+      if (s.type === 'homing') {
+        const targetA = Math.atan2(player.y - s.y, player.x - s.x);
+        const curA = Math.atan2(s.vy, s.vx);
+        const spd = Math.hypot(s.vx, s.vy);
+        let diff = targetA - curA;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const newA = curA + Math.sign(diff) * Math.min(Math.abs(diff), 1.65 * dt);
+        s.vx = Math.cos(newA) * spd;
+        s.vy = Math.sin(newA) * spd;
+        s.x += s.vx * spdFactor * dt;
+        s.y += s.vy * spdFactor * dt;
+      } else if (s.type === 'splitter') {
+        s.x += s.vx * spdFactor * dt;
+        s.y += s.vy * spdFactor * dt;
+        if (!s.splitDone && s.age > 1.3) {
+          s.splitDone = true;
+          const baseA = Math.atan2(s.vy, s.vx);
+          const spd = Math.hypot(s.vx, s.vy) * 1.18;
+          [-0.38, 0, 0.38].forEach((offset) => {
+            spikes.push({
+              type: 'normal',
+              x: s.x,
+              y: s.y,
+              vx: Math.cos(baseA + offset) * spd,
+              vy: Math.sin(baseA + offset) * spd,
+              r: 7,
+              color: '#67e8f9',
+              hp: 1,
+              maxHp: 1,
+              age: 0,
+              immune: false
+            });
+          });
+          addParticles(s.x, s.y, '#06b6d4', 8);
+          spikes.splice(i, 1);
+          continue;
+        }
+      } else if (s.type === 'zigzag') {
+        const perp = s.baseAngle + Math.PI / 2;
+        const wave = Math.cos(s.age * 7.2) * 170;
+        s.x += (Math.cos(s.baseAngle) * s.speed + Math.cos(perp) * wave) * spdFactor * dt;
+        s.y += (Math.sin(s.baseAngle) * s.speed + Math.sin(perp) * wave) * spdFactor * dt;
+      } else if (s.type === 'sniper') {
+        if (s.aimTime > 0) {
+          s.aimTime -= dt;
+          if (s.aimTime <= 0) {
+            s.vx = Math.cos(s.aimAngle) * s.speed;
+            s.vy = Math.sin(s.aimAngle) * s.speed;
+          }
+        } else {
+          s.x += s.vx * spdFactor * dt;
+          s.y += s.vy * spdFactor * dt;
+        }
+      } else {
+        s.x += s.vx * spdFactor * dt;
+        s.y += s.vy * spdFactor * dt;
+      }
+
+      if (s.x < -110 || s.x > W + 110 || s.y < -110 || s.y > H + 110) {
+        spikes.splice(i, 1);
+        continue;
+      }
+
+      if (player.invuln <= 0 && Math.hypot(s.x - player.x, s.y - player.y) < player.r + s.r - 2) {
+        spikes.splice(i, 1);
+        player.hp--;
+        player.invuln = 1.05;
+        shakeTimer = 0.25;
+        addParticles(player.x, player.y, '#ef4444', 16);
+        playTone(150, 'sawtooth', 0.22, 0.14);
+        updateHud();
+        if (player.hp <= 0) {
+          triggerGameOver(s.type === 'ghost' ? '스킬을 통과하는 유령 가시에 피격되었습니다!' : '가시에 피격되어 파괴되었습니다!');
+          return;
+        }
+      }
+    }
+
+    // 6. Gems & Coins Magnet Pickup
+    const magAmp = getCardMultiplier('magnet');
+    const magRadius = (magEvo ? 420 : (95 + magLv * 50)) * magAmp;
+
+    if (magLv > 0) {
+      magnetWaveTimer -= dt;
+      if (magnetWaveTimer <= 0) {
+        magnetWaveTimer = 1.4;
+        shockwaves.push({
+          x: player.x,
+          y: player.y,
+          r: Math.min(magRadius, 240),
+          maxR: 16,
+          life: 0.45,
+          maxLife: 0.45,
+          color: magEvo ? '#a855f7' : '#60a5fa',
+          fill: false
+        });
+      }
+    }
+
+    for (let i = gems.length - 1; i >= 0; i--) {
+      const g = gems[i];
+      g.pulse = (g.pulse || 0) + dt * 5;
+      const d = Math.hypot(player.x - g.x, player.y - g.y);
+      if (d < magRadius && d > 0) {
+        g.pulling = true;
+        const a = Math.atan2(player.y - g.y, player.x - g.x);
+        const pullSpd = (magEvo ? 560 : 450) + (1 - Math.min(1, d / magRadius)) * 220;
+        g.x += Math.cos(a) * pullSpd * dt;
+        g.y += Math.sin(a) * pullSpd * dt;
+      } else {
+        g.pulling = false;
+      }
+      if (d < player.r + 12) {
+        player.xp += g.val;
+        const gemCol = g.tier === 3 ? '#c084fc' : g.tier === 2 ? '#34d399' : '#38bdf8';
+        addParticles(g.x, g.y, gemCol, 4);
+        gems.splice(i, 1);
+        const pitch = 680 + Math.min(400, (player.xp / player.nextXp) * 320);
+        playTone(pitch, 'sine', 0.06, 0.04);
+        if (player.xp >= player.nextXp) {
+          player.xp -= player.nextXp;
+          player.level++;
+          player.nextXp = Math.floor(player.nextXp * 1.28 + 5);
+          levelFlashAlpha = 0.35;
+          updateHud();
+          openLevelUpModal();
+          return;
+        }
+      }
+    }
+
+    for (let i = coins.length - 1; i >= 0; i--) {
+      const c = coins[i];
+      const d = Math.hypot(player.x - c.x, player.y - c.y);
+      if (d < magRadius && d > 0) {
+        const a = Math.atan2(player.y - c.y, player.x - c.x);
+        c.x += Math.cos(a) * (magEvo ? 560 : 450) * dt;
+        c.y += Math.sin(a) * (magEvo ? 560 : 450) * dt;
+      }
+      if (d < player.r + 12) {
+        runCoins += c.val;
+        coins.splice(i, 1);
+        playTone(1040, 'triangle', 0.08, 0.05);
+      }
+    }
+
+    // 7. Visual Particles & Effects
+    particles.forEach(p => { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; });
+    particles = particles.filter(p => p.life > 0);
+    laserBeams.forEach(l => l.life -= dt);
+    laserBeams = laserBeams.filter(l => l.life > 0);
+    lightningArcs.forEach(l => l.life -= dt);
+    lightningArcs = lightningArcs.filter(l => l.life > 0);
+    shockwaves.forEach(sw => { sw.r += (sw.maxR - sw.r) * 10 * dt; sw.life -= dt; });
+    shockwaves = shockwaves.filter(sw => sw.life > 0);
+    afterImages.forEach(a => a.life -= dt);
+    afterImages = afterImages.filter(a => a.life > 0);
+    shieldTrails.forEach(t => t.life -= dt);
+    shieldTrails = shieldTrails.filter(t => t.life > 0);
+    healWaves.forEach(h => { h.r += (h.maxR - h.r) * 8 * dt; h.life -= dt; });
+    healWaves = healWaves.filter(h => h.life > 0);
+
+    ambientItems.forEach(a => {
+      a.phase += a.speed * dt;
+      a.x += (a.vx + Math.sin(a.phase) * 8) * dt;
+      a.y += a.vy * dt;
+      if (a.x < -20) a.x = W + 20;
+      if (a.x > W + 20) a.x = -20;
+      if (a.y < -20) a.y = H + 20;
+      if (a.y > H + 20) a.y = -20;
+    });
+
+    updateHud();
+  }
+
+  // --- Theme Background Renderer ---
+  function drawStageBackground(stage) {
+    const t = performance.now() * 0.001;
+
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+    bgGrad.addColorStop(0, stage.bgTop);
+    bgGrad.addColorStop(1, stage.bgBottom);
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    if (stage.themeId === 'meadow') {
+      const moonGrad = ctx.createRadialGradient(W * 0.8, H * 0.18, 10, W * 0.8, H * 0.18, Math.max(W, H) * 0.45);
+      moonGrad.addColorStop(0, 'rgba(167, 243, 208, 0.14)');
+      moonGrad.addColorStop(1, 'rgba(6, 78, 59, 0)');
+      ctx.fillStyle = moonGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = stage.gridColor;
+      ctx.lineWidth = 1.2;
+      const step = 64;
+      for (let gx = 32; gx < W; gx += step) {
+        for (let gy = 32; gy < H; gy += step) {
+          const sway = Math.sin(t * 1.8 + gx * 0.02 + gy * 0.02) * 5;
+          ctx.beginPath();
+          ctx.moveTo(gx, gy + 8);
+          ctx.quadraticCurveTo(gx + sway, gy, gx + sway * 1.4, gy - 8);
+          ctx.stroke();
+        }
+      }
+
+      ambientItems.forEach(a => {
+        const glow = 0.35 + Math.sin(a.phase) * 0.35;
+        ctx.save();
+        ctx.fillStyle = `rgba(190, 242, 100, ${Math.max(0.08, glow)})`;
+        ctx.shadowColor = '#bef264';
+        ctx.shadowBlur = 10;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    } else if (stage.themeId === 'canyon') {
+      const sunGrad = ctx.createRadialGradient(W * 0.5, H * 0.25, 15, W * 0.5, H * 0.25, Math.max(W, H) * 0.48);
+      sunGrad.addColorStop(0, 'rgba(251, 146, 60, 0.22)');
+      sunGrad.addColorStop(0.5, 'rgba(217, 70, 239, 0.12)');
+      sunGrad.addColorStop(1, 'rgba(20, 8, 38, 0)');
+      ctx.fillStyle = sunGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = stage.gridColor;
+      ctx.lineWidth = 1;
+      const gSize = 56;
+      const offset = (t * 22) % gSize;
+      for (let x = 0; x < W; x += gSize) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (let y = offset - gSize; y < H; y += gSize) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+
+      ambientItems.forEach(a => {
+        ctx.fillStyle = `rgba(244, 114, 182, ${0.22 + Math.sin(a.phase) * 0.15})`;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    } else if (stage.themeId === 'citadel') {
+      ctx.strokeStyle = stage.gridColor;
+      ctx.lineWidth = 1.5;
+      const tileW = 84;
+      const tileH = 48;
+      for (let row = 0; row * tileH < H + tileH; row++) {
+        const y = row * tileH;
+        const shift = (row % 2) * (tileW / 2);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+        for (let col = -1; col * tileW < W + tileW; col++) {
+          const x = col * tileW + shift;
+          ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + tileH); ctx.stroke();
+        }
+      }
+
+      for (let f = 0; f < 3; f++) {
+        const fx = ((t * (14 + f * 6) + f * 310) % (W + 400)) - 200;
+        const fy = H * (0.25 + f * 0.26);
+        const fogGrad = ctx.createRadialGradient(fx, fy, 20, fx, fy, 240);
+        fogGrad.addColorStop(0, 'rgba(125, 211, 252, 0.08)');
+        fogGrad.addColorStop(1, 'rgba(15, 37, 54, 0)');
+        ctx.fillStyle = fogGrad;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      ambientItems.forEach(a => {
+        const alpha = 0.25 + Math.sin(a.phase) * 0.2;
+        ctx.save();
+        ctx.fillStyle = `rgba(186, 230, 253, ${Math.max(0.06, alpha)})`;
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r * 1.3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    } else if (stage.themeId === 'fortress') {
+      const magGlow = ctx.createRadialGradient(W * 0.5, H * 0.5, 40, W * 0.5, H * 0.5, Math.max(W, H) * 0.65);
+      magGlow.addColorStop(0, 'rgba(239, 68, 68, 0.06)');
+      magGlow.addColorStop(1, 'rgba(234, 88, 12, 0.22)');
+      ctx.fillStyle = magGlow;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = stage.gridColor;
+      ctx.lineWidth = 1.5;
+      const plate = 72;
+      for (let x = 0; x < W; x += plate) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+      }
+      for (let y = 0; y < H; y += plate) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+
+      const lavaPulse = 0.22 + Math.sin(t * 2.6) * 0.1;
+      ctx.strokeStyle = `rgba(249, 115, 22, ${lavaPulse})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, H * 0.22);
+      ctx.lineTo(W * 0.32, H * 0.35);
+      ctx.lineTo(W * 0.68, H * 0.28);
+      ctx.lineTo(W, H * 0.42);
+      ctx.moveTo(0, H * 0.78);
+      ctx.lineTo(W * 0.4, H * 0.68);
+      ctx.lineTo(W * 0.75, H * 0.82);
+      ctx.lineTo(W, H * 0.72);
+      ctx.stroke();
+
+      ambientItems.forEach(a => {
+        ctx.save();
+        ctx.fillStyle = `rgba(251, 146, 60, ${0.4 + Math.sin(a.phase) * 0.3})`;
+        ctx.shadowColor = '#ef4444';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+    } else if (stage.themeId === 'nebula') {
+      const cx = W * 0.5;
+      const cy = H * 0.5;
+      const nebGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, Math.max(W, H) * 0.58);
+      nebGrad.addColorStop(0, 'rgba(192, 132, 252, 0.24)');
+      nebGrad.addColorStop(0.45, 'rgba(99, 102, 241, 0.14)');
+      nebGrad.addColorStop(0.8, 'rgba(244, 63, 94, 0.07)');
+      nebGrad.addColorStop(1, 'rgba(4, 3, 16, 0)');
+      ctx.fillStyle = nebGrad;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(t * 0.12);
+      ctx.strokeStyle = 'rgba(167, 139, 250, 0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([12, 14]);
+      ctx.beginPath(); ctx.arc(0, 0, Math.min(W, H) * 0.28, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, 0, Math.min(W, H) * 0.44, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+
+      ambientItems.forEach((a, idx) => {
+        const twinkle = 0.25 + Math.sin(a.phase * 1.6) * 0.45;
+        ctx.fillStyle = idx % 3 === 0
+          ? `rgba(196, 181, 253, ${Math.max(0.1, twinkle)})`
+          : `rgba(255, 255, 255, ${Math.max(0.1, twinkle)})`;
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r * 0.85, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+  }
+
+  // --- Render Loop ---
+  function draw() {
+    ctx.save();
+    if (shakeTimer > 0) {
+      ctx.translate((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+    }
+
+    const curStage = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
+    drawStageBackground(curStage);
+
+    // Chrono Field
+    const chronoLv = player.skills.chrono || 0;
+    if (chronoLv > 0) {
+      const evo = chronoLv >= 5;
+      const r = (evo ? 215 : (125 + chronoLv * 18)) * getCardMultiplier('chrono');
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      const grad = ctx.createRadialGradient(0, 0, 10, 0, 0, r);
+      grad.addColorStop(0, evo ? 'rgba(56, 189, 248, 0.04)' : 'rgba(99, 102, 241, 0.02)');
+      grad.addColorStop(1, evo ? 'rgba(56, 189, 248, 0.2)' : 'rgba(129, 140, 248, 0.15)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.rotate(elapsed * (evo ? 0.75 : 0.45));
+      ctx.strokeStyle = evo ? 'rgba(125, 211, 252, 0.6)' : 'rgba(165, 180, 252, 0.45)';
+      ctx.lineWidth = evo ? 2.5 : 2;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      for (let t = 0; t < 12; t++) {
+        const ta = (Math.PI * 2 * t) / 12;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ta) * (r - 10), Math.sin(ta) * (r - 10));
+        ctx.lineTo(Math.cos(ta) * r, Math.sin(ta) * r);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    // Flame Zones
+    fireZones.forEach(f => {
+      const ratio = Math.max(0, f.life / f.maxLife);
+      const pulseR = f.r * (0.9 + Math.sin(elapsed * 14 + f.seed) * 0.1);
+      ctx.save();
+      const grad = ctx.createRadialGradient(f.x, f.y, 2, f.x, f.y, pulseR);
+      if (f.evo) {
+        grad.addColorStop(0, `rgba(255, 255, 255, ${0.55 * ratio})`);
+        grad.addColorStop(0.45, `rgba(244, 63, 94, ${0.46 * ratio})`);
+        grad.addColorStop(1, 'rgba(190, 18, 60, 0)');
+      } else {
+        grad.addColorStop(0, `rgba(254, 240, 138, ${0.55 * ratio})`);
+        grad.addColorStop(0.5, `rgba(249, 115, 22, ${0.42 * ratio})`);
+        grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+      }
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, pulseR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Gems
+    gems.forEach(g => {
+      const scale = 1 + Math.sin(g.pulse) * 0.15;
+      const sz = (g.tier === 3 ? 9.5 : g.tier === 2 ? 8 : 6.5) * scale;
+      const mainCol = g.tier === 3 ? '#c084fc' : g.tier === 2 ? '#34d399' : '#38bdf8';
+      const coreCol = g.tier === 3 ? '#f3e8ff' : g.tier === 2 ? '#d1fae5' : '#e0f2fe';
+
+      ctx.save();
+      if (g.pulling) {
+        ctx.strokeStyle = mainCol;
+        ctx.globalAlpha = 0.35;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(g.x, g.y);
+        ctx.lineTo(player.x, player.y);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      ctx.translate(g.x, g.y);
+      ctx.shadowColor = mainCol;
+      ctx.shadowBlur = g.tier === 3 ? 14 : 9;
+      ctx.fillStyle = mainCol;
+      ctx.beginPath();
+      ctx.moveTo(0, -sz * 1.25);
+      ctx.lineTo(sz * 0.85, 0);
+      ctx.lineTo(0, sz * 1.25);
+      ctx.lineTo(-sz * 0.85, 0);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = coreCol;
+      ctx.beginPath();
+      ctx.moveTo(0, -sz * 0.55);
+      ctx.lineTo(sz * 0.38, 0);
+      ctx.lineTo(0, sz * 0.55);
+      ctx.lineTo(-sz * 0.38, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Coins
+    coins.forEach(c => {
+      ctx.save();
+      ctx.fillStyle = '#facc15';
+      ctx.shadowColor = '#facc15';
+      ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#fef08a';
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // Spikes (8 Types)
+    spikes.forEach(s => {
+      if (s.type === 'sniper' && s.aimTime > 0) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([8, 6]);
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x + Math.cos(s.aimAngle) * 1400, s.y + Math.sin(s.aimAngle) * 1400);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      const ang = (s.type === 'sniper' && s.aimTime > 0) ? s.aimAngle :
+                  (s.type === 'zigzag') ? s.baseAngle : Math.atan2(s.vy, s.vx);
+
+      ctx.save();
+      ctx.translate(s.x, s.y);
+
+      if (s.type === 'tank') {
+        const bw = 46;
+        const bh = 6;
+        const pct = Math.max(0, s.hp / s.maxHp);
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillRect(-bw / 2, -s.r - 16, bw, bh);
+        ctx.fillStyle = '#fb7185';
+        ctx.fillRect(-bw / 2, -s.r - 16, bw * pct, bh);
+        ctx.strokeStyle = '#fda4af';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(-bw / 2, -s.r - 16, bw, bh);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 10px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${Math.ceil(s.hp)}`, 0, -s.r - 19);
+      }
+
+      ctx.rotate(ang);
+
+      if (s.type === 'ghost') {
+        ctx.globalAlpha = 0.45 + Math.sin(s.age * 8) * 0.12;
+        ctx.fillStyle = '#e0f2fe';
+        ctx.shadowColor = '#7dd3fc';
+        ctx.shadowBlur = 14;
+        ctx.beginPath();
+        ctx.moveTo(s.r * 1.45, 0);
+        ctx.lineTo(-s.r, -s.r * 0.85);
+        ctx.lineTo(-s.r * 0.45, 0);
+        ctx.lineTo(-s.r, s.r * 0.85);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+      } else if (s.type === 'tank') {
+        ctx.fillStyle = '#be123c';
+        ctx.shadowColor = '#f43f5e';
+        ctx.shadowBlur = 16;
+        ctx.beginPath();
+        ctx.moveTo(s.r * 1.35, 0);
+        ctx.lineTo(0, -s.r * 0.95);
+        ctx.lineTo(-s.r * 1.05, -s.r * 0.7);
+        ctx.lineTo(-s.r * 0.65, 0);
+        ctx.lineTo(-s.r * 1.05, s.r * 0.7);
+        ctx.lineTo(0, s.r * 0.95);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#fda4af';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = s.color;
+        ctx.shadowColor = s.color;
+        ctx.shadowBlur = 12;
+        ctx.beginPath();
+        ctx.moveTo(s.r * 1.45, 0);
+        ctx.lineTo(-s.r, -s.r * 0.85);
+        ctx.lineTo(-s.r * 0.5, 0);
+        ctx.lineTo(-s.r, s.r * 0.85);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    });
+
+    // 1-Second Stillness Progress Ring
+    if (state === 'PLAYING' && player.idleTimer > 0) {
+      const ratio = Math.min(1, player.idleTimer);
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r + 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+      ctx.strokeStyle = ratio > 0.65 ? '#f43f5e' : '#facc15';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Afterimages
+    afterImages.forEach(a => {
+      const alpha = Math.max(0, (a.life / a.maxLife) * (a.evo ? 0.48 : 0.36));
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(a.x, a.y, a.r * 0.9, 0, Math.PI * 2);
+      ctx.fillStyle = a.evo ? `rgba(250, 204, 21, ${alpha})` : `rgba(34, 211, 238, ${alpha})`;
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Player
+    if (player.invuln <= 0 || Math.floor(player.invuln * 16) % 2 === 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+      ctx.fillStyle = '#38bdf8';
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 16;
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Orbiting Shields
+    const shieldLv = player.skills.shield || 0;
+    if (shieldLv > 0) {
+      const evo = shieldLv >= 5;
+      const amp = getCardMultiplier('shield');
+      const orbCount = evo ? 6 : Math.min(5, 1 + Math.floor((shieldLv + 1) / 2));
+      const orbitR = (evo ? 92 : (56 + shieldLv * 5)) * amp;
+
+      if (evo) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, orbitR, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(250, 204, 21, 0.42)';
+        ctx.shadowColor = '#f59e0b';
+        ctx.shadowBlur = 12;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      shieldTrails.forEach(t => {
+        const alpha = Math.max(0, (t.life / t.maxLife) * 0.35);
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.r * (t.life / t.maxLife), 0, Math.PI * 2);
+        ctx.fillStyle = t.evo ? `rgba(250, 204, 21, ${alpha})` : `rgba(52, 211, 153, ${alpha})`;
+        ctx.fill();
+      });
+
+      for (let o = 0; o < orbCount; o++) {
+        const a = shieldAngle + (Math.PI * 2 * o) / orbCount;
+        const ox = player.x + Math.cos(a) * orbitR;
+        const oy = player.y + Math.sin(a) * orbitR;
+        ctx.save();
+        ctx.translate(ox, oy);
+        ctx.rotate(shieldAngle * 2);
+        ctx.shadowColor = evo ? '#facc15' : '#10b981';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = evo ? '#fbbf24' : '#34d399';
+        ctx.beginPath();
+        for (let k = 0; k < 6; k++) {
+          const ha = (Math.PI / 3) * k;
+          const px = Math.cos(ha) * (evo ? 11 : 10);
+          const py = Math.sin(ha) * (evo ? 11 : 10);
+          if (k === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // Lasers
+    laserBeams.forEach(l => {
+      const alpha = Math.max(0, l.life / l.maxLife);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = l.evo ? '#f43f5e' : '#0ea5e9';
+      ctx.shadowColor = l.evo ? '#fb7185' : '#38bdf8';
+      ctx.shadowBlur = 16;
+      ctx.lineWidth = (l.evo ? 8.5 : 7) * alpha;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = (l.evo ? 3 : 2.5) * alpha;
+      ctx.beginPath(); ctx.moveTo(l.x1, l.y1); ctx.lineTo(l.x2, l.y2); ctx.stroke();
+      ctx.restore();
+    });
+
+    // Chain Lightning
+    lightningArcs.forEach(l => {
+      const alpha = Math.max(0, l.life / l.maxLife);
+      if (!l.pts || l.pts.length < 2) return;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = l.evo ? '#facc15' : '#d946ef';
+      ctx.shadowColor = l.evo ? '#fef08a' : '#e879f9';
+      ctx.shadowBlur = 16;
+      ctx.lineWidth = l.evo ? 5.5 : 4.5;
+      ctx.beginPath();
+      ctx.moveTo(l.pts[0].x, l.pts[0].y);
+      for (let i = 1; i < l.pts.length; i++) ctx.lineTo(l.pts[i].x, l.pts[i].y);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    // Shockwaves & Heal Waves
+    shockwaves.forEach(sw => {
+      const alpha = Math.max(0, sw.life / (sw.maxLife || 0.35));
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.beginPath();
+      ctx.arc(sw.x, sw.y, sw.r, 0, Math.PI * 2);
+      if (sw.fill) {
+        const g = ctx.createRadialGradient(sw.x, sw.y, sw.r * 0.3, sw.x, sw.y, sw.r);
+        g.addColorStop(0, 'rgba(56, 189, 248, 0)');
+        g.addColorStop(1, sw.color);
+        ctx.fillStyle = g;
+        ctx.fill();
+      }
+      ctx.strokeStyle = sw.color;
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    healWaves.forEach(h => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, h.life / 0.45);
+      ctx.strokeStyle = '#fb7185';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, h.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = Math.max(0, p.life * 2);
+      ctx.fillRect(p.x - 2.5, p.y - 2.5, 5, 5);
+      ctx.globalAlpha = 1;
+    });
+
+    if (levelFlashAlpha > 0) {
+      ctx.fillStyle = `rgba(56, 189, 248, ${levelFlashAlpha})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Touch Virtual Joystick
+    if (joystick.active) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.38)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(joystick.ox, joystick.oy, joystick.maxR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(56, 189, 248, 0.55)';
+      ctx.beginPath();
+      ctx.arc(joystick.ox + joystick.dx * joystick.maxR, joystick.oy + joystick.dy * joystick.maxR, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    ctx.restore();
+  }
+
+  function updateHud() {
+    const curStage = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
+    document.getElementById('lvBadge').textContent = `LV.${player.level}`;
+    const pct = Math.min(100, (player.xp / player.nextXp) * 100);
+    document.getElementById('xpBar').style.width = `${pct}%`;
+    document.getElementById('xpText').textContent = `${player.xp} / ${player.nextXp} XP`;
+
+    document.getElementById('timerText').textContent = formatTime(elapsed);
+    const stagePct = Math.min(100, (elapsed / curStage.targetSec) * 100);
+    document.getElementById('stageProgressBar').style.width = `${stagePct}%`;
+
+    document.getElementById('killsText').textContent = kills;
+    document.getElementById('hudCoinsText').textContent = (saveData.coins + runCoins).toLocaleString();
+
+    let hearts = '';
+    for (let i = 0; i < player.maxHp; i++) hearts += i < player.hp ? '❤️' : '🖤';
+    document.getElementById('hpHearts').textContent = hearts;
+
+    const skContainer = document.getElementById('activeSkillsHud');
+    skContainer.innerHTML = '';
+    SKILLS.forEach(sk => {
+      const lv = player.skills[sk.id];
+      if (lv) {
+        const isEvo = lv >= 5;
+        const badge = document.createElement('span');
+        badge.className = isEvo
+          ? 'px-1.5 py-0.5 rounded bg-amber-500/25 border border-amber-400 text-[11px] font-black text-amber-300 shadow-[0_0_8px_rgba(250,204,21,0.4)]'
+          : 'px-1.5 py-0.5 rounded bg-slate-900/90 border border-cyan-500/40 text-[11px] font-bold text-slate-100';
+        badge.textContent = isEvo ? `${sk.evoIcon} 각성` : `${sk.icon} Lv.${lv}`;
+        skContainer.appendChild(badge);
+      }
+    });
+  }
+
+  // --- Shop Random Box & +0.1 Cumulative Merge (Single & Merge All) ---
+  function openShopModal() {
+    syncPersistentUI();
+    document.getElementById('shopNoticeMsg').textContent = '';
+    document.getElementById('mergeStatusMsg').textContent = '';
+    renderInventory();
+    document.getElementById('shopOverlay').classList.remove('hidden');
+  }
+
+  function rollRandomCard(isHighTier) {
+    const sk = SKILLS[Math.floor(Math.random() * SKILLS.length)];
+    const r = Math.random();
+    let mult = 1.1;
+    if (isHighTier) {
+      if (r < 0.14) mult = 1.3;
+      else if (r < 0.48) mult = 1.2;
+    } else {
+      if (r < 0.12) mult = 1.2;
+    }
+    return { skillId: sk.id, mult: roundMult(mult) };
+  }
+
+  function openRandomBox(count, cost, isHighTier) {
+    const noticeEl = document.getElementById('shopNoticeMsg');
+    if (saveData.coins < cost) {
+      noticeEl.textContent = `골드가 부족합니다! (${cost}G 필요 · 스테이지를 클리어해 골드를 획득하세요)`;
+      playTone(180, 'sawtooth', 0.15, 0.08);
+      return;
+    }
+    noticeEl.textContent = '';
+    saveData.coins -= cost;
+
+    const pulled = [];
+    for (let i = 0; i < count; i++) {
+      const card = rollRandomCard(isHighTier);
+      saveData.cards.push(card);
+      pulled.push(card);
+    }
+    persistData();
+    renderInventory();
+    playTone(760, 'triangle', 0.2, 0.1);
+
+    const resBox = document.getElementById('gachaResults');
+    resBox.innerHTML = '';
+    pulled.forEach(c => {
+      const sk = SKILLS.find(s => s.id === c.skillId);
+      const st = getCardTierStyle(c.mult);
+      const item = document.createElement('div');
+      item.className = 'card-pop rounded-xl bg-slate-900 border-2 p-3 w-28 text-center flex flex-col items-center gap-1';
+      item.style.borderColor = st.border;
+      item.style.boxShadow = `0 0 14px ${st.glow}`;
+      item.innerHTML = `
+        <div class="text-2xl">${sk.icon}</div>
+        <div class="font-black text-xs text-white">${sk.name}</div>
+        <div class="font-orbitron text-xs font-black" style="color:${st.text};">x${c.mult.toFixed(1)}</div>
+        <div class="text-[10px] text-slate-400">증폭 카드</div>
+      `;
+      resBox.appendChild(item);
+    });
+  }
+
+  function mergeAllAvailableCards() {
+    let totalMerges = 0;
+    let mergedThisPass = true;
+
+    while (mergedThisPass) {
+      mergedThisPass = false;
+      const counts = {};
+      for (const c of saveData.cards) {
+        const m = roundMult(c.mult);
+        const key = `${c.skillId}_${m.toFixed(1)}`;
+        if (!counts[key]) counts[key] = { skillId: c.skillId, mult: m, count: 0 };
+        counts[key].count++;
+      }
+
+      for (const key of Object.keys(counts)) {
+        const entry = counts[key];
+        const mergeCount = Math.floor(entry.count / 3);
+        if (mergeCount > 0) {
+          let toRemove = mergeCount * 3;
+          saveData.cards = saveData.cards.filter(c => {
+            if (toRemove > 0 && c.skillId === entry.skillId && roundMult(c.mult) === entry.mult) {
+              toRemove--;
+              return false;
+            }
+            return true;
+          });
+          const nextMult = roundMult(entry.mult + 0.1);
+          for (let i = 0; i < mergeCount; i++) {
+            saveData.cards.push({ skillId: entry.skillId, mult: nextMult });
+          }
+          totalMerges += mergeCount;
+          mergedThisPass = true;
+        }
+      }
+    }
+
+    const statusEl = document.getElementById('mergeStatusMsg');
+    if (totalMerges > 0) {
+      persistData();
+      renderInventory();
+      statusEl.textContent = `✨ 총 ${totalMerges}회 연쇄 합성 완료! 배율이 +0.1씩 증가했습니다.`;
+      playTone(960, 'sine', 0.28, 0.12);
+    } else {
+      statusEl.textContent = '합성 가능한 카드(동일 카드 3장 이상)가 없습니다.';
+    }
+  }
+
+  function renderInventory() {
+    const grid = document.getElementById('invGrid');
+    grid.innerHTML = '';
+
+    const grouped = {};
+    saveData.cards.forEach(c => {
+      const m = roundMult(c.mult);
+      const key = `${c.skillId}_${m.toFixed(1)}`;
+      if (!grouped[key]) grouped[key] = { skillId: c.skillId, mult: m, count: 0 };
+      grouped[key].count++;
+    });
+
+    const list = Object.values(grouped).sort((a, b) => b.mult - a.mult || a.skillId.localeCompare(b.skillId));
+    const hasAnyMergeable = list.some(item => item.count >= 3);
+    const mergeAllBtn = document.getElementById('mergeAllBtn');
+    if (mergeAllBtn) {
+      mergeAllBtn.disabled = !hasAnyMergeable;
+    }
+
+    if (list.length === 0) {
+      grid.innerHTML = '<div class="col-span-full text-center text-xs text-slate-500 py-8">보유 중인 카드가 없습니다. 상점에서 랜덤박스를 열어보세요!</div>';
+      return;
+    }
+
+    list.forEach(item => {
+      const sk = SKILLS.find(s => s.id === item.skillId);
+      const st = getCardTierStyle(item.mult);
+      const nextMult = roundMult(item.mult + 0.1);
+      const canMerge = item.count >= 3;
+
+      const cardEl = document.createElement('div');
+      cardEl.className = 'rounded-xl bg-slate-900/95 border-2 p-3 text-center flex flex-col items-center justify-between gap-1';
+      cardEl.style.borderColor = st.border;
+      cardEl.style.boxShadow = `0 0 12px ${st.glow}`;
+      cardEl.innerHTML = `
+        <div class="text-2xl">${sk.icon}</div>
+        <div class="font-black text-xs text-white">${sk.name}</div>
+        <div class="font-orbitron text-xs font-black" style="color:${st.text};">배율 x${item.mult.toFixed(1)}</div>
+        <div class="text-xs font-extrabold text-slate-200">보유: ${item.count}장</div>
+        <button type="button" class="merge-action mt-1 w-full py-1.5 rounded-lg text-[11px] font-black ${canMerge ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}" ${canMerge ? '' : 'disabled'}>
+          ${canMerge ? `✨ 3장 합성 (→ x${nextMult.toFixed(1)})` : `합성 (${item.count}/3)`}
+        </button>
+      `;
+
+      if (canMerge) {
+        cardEl.querySelector('.merge-action').addEventListener('click', () => {
+          let removed = 0;
+          saveData.cards = saveData.cards.filter(c => {
+            if (removed < 3 && c.skillId === item.skillId && roundMult(c.mult) === item.mult) {
+              removed++;
+              return false;
+            }
+            return true;
+          });
+          saveData.cards.push({ skillId: item.skillId, mult: nextMult });
+          persistData();
+          document.getElementById('mergeStatusMsg').textContent = `✨ ${sk.name} 카드 합성 완료! (→ x${nextMult.toFixed(1)})`;
+          renderInventory();
+          playTone(940, 'sine', 0.24, 0.12);
+        });
+      }
+      grid.appendChild(cardEl);
+    });
+  }
+
+  // --- UI Button Event Bindings ---
+  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+  document.getElementById('pauseRestartBtn').addEventListener('click', startGame);
+  document.getElementById('pauseMenuBtn').addEventListener('click', returnToStageMenu);
+  document.getElementById('backMenuClearBtn').addEventListener('click', returnToStageMenu);
+  document.getElementById('backMenuOverBtn').addEventListener('click', returnToStageMenu);
+
+  document.getElementById('nextStageBtn').addEventListener('click', () => {
+    if (selectedStageId < STAGES.length) {
+      selectedStageId++;
+    }
+    startGame();
+  });
+
+  document.getElementById('pauseToggleBtn').addEventListener('click', togglePause);
+  document.getElementById('resumeBtn').addEventListener('click', togglePause);
+
+  document.getElementById('soundToggleBtn').addEventListener('click', () => {
+    soundMuted = !soundMuted;
+    document.getElementById('soundIcon').className = soundMuted
+      ? 'fa-solid fa-volume-xmark text-rose-400'
+      : 'fa-solid fa-volume-high text-cyan-400';
+  });
+
+  document.getElementById('openShopStartBtn').addEventListener('click', openShopModal);
+  document.getElementById('openShopOverBtn').addEventListener('click', openShopModal);
+  document.getElementById('openShopClearBtn').addEventListener('click', openShopModal);
+  document.getElementById('closeShopBtn').addEventListener('click', () => {
+    document.getElementById('shopOverlay').classList.add('hidden');
+  });
+
+  document.getElementById('tabShopBtn').addEventListener('click', () => {
+    document.getElementById('tabShopBtn').className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-black bg-cyan-600 text-white cursor-pointer';
+    document.getElementById('tabInvBtn').className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-black text-slate-400 hover:text-white cursor-pointer';
+    document.getElementById('shopTabContent').classList.remove('hidden');
+    document.getElementById('invTabContent').classList.add('hidden');
+  });
+
+  document.getElementById('tabInvBtn').addEventListener('click', () => {
+    document.getElementById('tabInvBtn').className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-black bg-cyan-600 text-white cursor-pointer';
+    document.getElementById('tabShopBtn').className = 'flex-1 py-2 rounded-lg text-xs sm:text-sm font-black text-slate-400 hover:text-white cursor-pointer';
+    document.getElementById('invTabContent').classList.remove('hidden');
+    document.getElementById('shopTabContent').classList.add('hidden');
+    document.getElementById('mergeStatusMsg').textContent = '';
+    renderInventory();
+  });
+
+  document.getElementById('buyBox1Btn').addEventListener('click', () => openRandomBox(1, 100, false));
+  document.getElementById('buyBox3Btn').addEventListener('click', () => openRandomBox(3, 270, true));
+  document.getElementById('mergeAllBtn').addEventListener('click', mergeAllAvailableCards);
+
+  // --- Main Animation Loop ---
+  function mainLoop(timestamp) {
+    if (!lastTimestamp) lastTimestamp = timestamp;
+    const dt = Math.min(0.05, Math.max(0, (timestamp - lastTimestamp) / 1000));
+    lastTimestamp = timestamp;
+
+    update(dt);
+    draw();
+    requestAnimationFrame(mainLoop);
+  }
+
+
+  // --- Backend Server Sync & Leaderboard Integration ---
+  const PLAYER_ID_KEY = 'spike_survivor_player_id_v1';
+  const NICK_KEY = 'spike_survivor_nickname_v1';
+  const SERVER_URL_KEY = 'spike_survivor_server_url_v1';
+
+  let playerId = localStorage.getItem(PLAYER_ID_KEY);
+  if (!playerId) {
+    playerId = 'p_' + Math.random().toString(36).slice(2, 11);
+    localStorage.setItem(PLAYER_ID_KEY, playerId);
+  }
+  let playerNickname = localStorage.getItem(NICK_KEY) || '익명생존자';
+  let serverBaseUrl = localStorage.getItem(SERVER_URL_KEY) || (window.location.protocol.startsWith('http') ? window.location.origin : '');
+
+  const nickInputEl = document.getElementById('nickInput');
+  const serverUrlInputEl = document.getElementById('serverUrlInput');
+  const serverConnBadgeEl = document.getElementById('serverConnBadge');
+  if (nickInputEl) nickInputEl.value = playerNickname;
+  if (serverUrlInputEl) serverUrlInputEl.value = serverBaseUrl;
+
+  function getCleanServerUrl() {
+    return (serverBaseUrl || '').trim().replace(/\/+$/, '');
+  }
+
+  async function syncServerLoad() {
+    const base = getCleanServerUrl();
+    if (!base) {
+      if (serverConnBadgeEl) serverConnBadgeEl.textContent = '오프라인 로컬 모드';
+      return;
+    }
+    try {
       const res = await fetch(`${base}/api/sync/load`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId: saveData.playerId, nickname: saveData.nickname })
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playerId, nickname: playerNickname })
       });
       const data = await res.json();
-      if (data.success) {
-        saveData.gold = Math.max(saveData.gold, data.gold || 0);
-        if (data.cards && Object.keys(data.cards).length > 0) saveData.cards = data.cards;
+      if (data && data.success) {
+        if (typeof data.gold === 'number') saveData.coins = Math.max(saveData.coins, data.gold);
+        if (Array.isArray(data.cards) && data.cards.length > 0) saveData.cards = data.cards;
         if (Array.isArray(data.clearedStages)) {
           saveData.clearedStages = Array.from(new Set([...saveData.clearedStages, ...data.clearedStages]));
         }
-        persistLocal();
-        renderStages();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData));
+        syncPersistentUI();
+        renderStageSelector();
+        if (serverConnBadgeEl) {
+          serverConnBadgeEl.textContent = '🟢 서버 온라인 연동됨';
+          serverConnBadgeEl.className = 'text-[10px] font-bold text-emerald-400';
+        }
       }
-    } else {
+    } catch (e) {
+      if (serverConnBadgeEl) {
+        serverConnBadgeEl.textContent = '🔴 서버 연결 실패 (로컬 저장)';
+        serverConnBadgeEl.className = 'text-[10px] font-bold text-rose-400';
+      }
+    }
+  }
+
+  async function syncServerSave() {
+    const base = getCleanServerUrl();
+    if (!base) return;
+    try {
       await fetch(`${base}/api/sync/save`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          playerId: saveData.playerId,
-          nickname: saveData.nickname,
-          gold: saveData.gold,
+          playerId,
+          nickname: playerNickname,
+          gold: saveData.coins,
           cards: saveData.cards,
           clearedStages: saveData.clearedStages
         })
       });
-    }
-  } catch (e) { console.warn('서버 동기화 대기 중:', e); }
-}
-
-function saveServerConfig() {
-  const nick = document.getElementById('nickInput').value.trim();
-  const url = document.getElementById('serverUrlInput').value.trim();
-  if (nick) saveData.nickname = nick;
-  saveData.serverUrl = url;
-  persistLocal();
-  syncWithServer('load').then(() => syncWithServer('save'));
-  alert('설정이 저장되었습니다!');
-}
-
-function getSkillCardMult(skillId) {
-  let maxM = 1.0;
-  for (const [key, cnt] of Object.entries(saveData.cards)) {
-    if (cnt > 0 && key.startsWith(skillId + '_')) {
-      const m = parseFloat(key.split('_')[1]);
-      if (m > maxM) maxM = m;
-    }
+    } catch (e) {}
   }
-  return maxM;
-}
 
-// ==========================================
-// 3. UI 렌더링 (스테이지 / 상점 / 랭킹)
-// ==========================================
-let selectedStageId = 1;
-
-function updateGoldUI() {
-  document.getElementById('menuGold').textContent = `💰 보유 골드: ${saveData.gold.toLocaleString()} G`;
-  document.getElementById('shopGold').textContent = `💰 ${saveData.gold.toLocaleString()} G`;
-}
-
-function renderStages() {
-  const grid = document.getElementById('stageGrid');
-  grid.innerHTML = '';
-  STAGES.forEach(st => {
-    const cleared = saveData.clearedStages.includes(st.id);
-    const min = Math.floor(st.duration / 60);
-    const div = document.createElement('div');
-    div.className = 'stage-card' + (selectedStageId === st.id ? ' selected' : '');
-    div.onclick = () => { selectedStageId = st.id; renderStages(); };
-    div.innerHTML = `
-      <div class="st-num">STAGE ${st.id} · ${st.diff}</div>
-      <div class="st-title">${st.title}</div>
-      <div class="st-meta">⏱ 목표 ${min}분 생존</div>
-      <div class="st-reward">🎁 +${st.reward.toLocaleString()} G</div>
-      ${cleared ? '<div class="st-clear">✅ 클리어 완료</div>' : ''}
-    `;
-    grid.appendChild(div);
-  });
-}
-
-function openShop() {
-  document.getElementById('shopOverlay').classList.add('active');
-  renderInventory();
-}
-function closeShop() {
-  document.getElementById('shopOverlay').classList.remove('active');
-}
-
-function buyBox(cost, count) {
-  if (saveData.gold < cost) {
-    alert('골드가 부족합니다!');
-    return;
+  async function submitServerRanking(stageNum, survivalSeconds, cleared, totalKills) {
+    const base = getCleanServerUrl();
+    if (!base) return;
+    try {
+      await fetch(`${base}/api/ranking/submit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          playerId,
+          nickname: playerNickname,
+          stage: stageNum,
+          survivalSeconds,
+          cleared,
+          kills: totalKills
+        })
+      });
+    } catch (e) {}
   }
-  saveData.gold -= cost;
-  const obtained = [];
-  for (let i = 0; i < count; i++) {
-    const sk = SKILLS[Math.floor(Math.random() * SKILLS.length)];
-    const mult = Math.random() < 0.15 ? '1.2' : '1.1';
-    const key = `${sk.id}_${mult}`;
-    saveData.cards[key] = (saveData.cards[key] || 0) + 1;
-    obtained.push(`${sk.icon} ${sk.name} (x${mult})`);
-  }
-  document.getElementById('gachaLog').textContent = `획득: ${obtained.join(', ')}`;
-  persistLocal();
-  syncWithServer('save');
-  renderInventory();
-}
 
-function mergeSingle(key) {
-  if ((saveData.cards[key] || 0) < 3) return;
-  const [skId, mStr] = key.split('_');
-  const nextMult = (Math.round((parseFloat(mStr) + 0.1) * 10) / 10).toFixed(1);
-  const nextKey = `${skId}_${nextMult}`;
-  saveData.cards[key] -= 3;
-  if (saveData.cards[key] <= 0) delete saveData.cards[key];
-  saveData.cards[nextKey] = (saveData.cards[nextKey] || 0) + 1;
-  persistLocal();
-  syncWithServer('save');
-  renderInventory();
-}
+  let currentRankStage = 1;
+  async function openRankingModal(stageNum = selectedStageId) {
+    currentRankStage = stageNum;
+    const overlay = document.getElementById('rankOverlay');
+    const tabs = document.getElementById('rankStageTabs');
+    const statusText = document.getElementById('rankStatusText');
+    const tbody = document.getElementById('rankTableBody');
 
-function mergeAllCards() {
-  let mergedCount = 0;
-  let changed = true;
-  while (changed) {
-    changed = false;
-    for (const key of Object.keys(saveData.cards)) {
-      if (saveData.cards[key] >= 3) {
-        const [skId, mStr] = key.split('_');
-        const nextMult = (Math.round((parseFloat(mStr) + 0.1) * 10) / 10).toFixed(1);
-        const nextKey = `${skId}_${nextMult}`;
-        saveData.cards[key] -= 3;
-        if (saveData.cards[key] <= 0) delete saveData.cards[key];
-        saveData.cards[nextKey] = (saveData.cards[nextKey] || 0) + 1;
-        mergedCount++;
-        changed = true;
-        break;
-      }
-    }
-  }
-  document.getElementById('gachaLog').textContent = mergedCount > 0
-    ? `✨ 총 ${mergedCount}회 연쇄 합성 완료! 배율이 +0.1씩 상승했습니다.`
-    : '합성 가능한 3장 이상 카드가 없습니다.';
-  persistLocal();
-  syncWithServer('save');
-  renderInventory();
-}
+    overlay.classList.remove('hidden');
+    tabs.innerHTML = '';
+    STAGES.forEach(st => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = `py-1.5 rounded-lg font-orbitron text-xs font-black cursor-pointer ${st.id === currentRankStage ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-slate-400 hover:text-white'}`;
+      b.textContent = `ST.${st.id}`;
+      b.addEventListener('click', () => openRankingModal(st.id));
+      tabs.appendChild(b);
+    });
 
-function renderInventory() {
-  const grid = document.getElementById('invGrid');
-  grid.innerHTML = '';
-  const entries = Object.entries(saveData.cards).filter(([, c]) => c > 0).sort();
-  if (entries.length === 0) {
-    grid.innerHTML = '<div style="color:#64748b; grid-column:1/-1; text-align:center; padding:20px;">보유 중인 카드가 없습니다. 상자 뽑기를 이용해 보세요!</div>';
-    return;
-  }
-  for (const [key, cnt] of entries) {
-    const [skId, mStr] = key.split('_');
-    const sk = SKILLS.find(s => s.id === skId) || { icon: '🃏', name: skId };
-    const canMerge = cnt >= 3;
-    const div = document.createElement('div');
-    div.className = 'inv-item' + (canMerge ? ' can-merge' : '');
-    div.innerHTML = `
-      <div style="font-weight:800;">${sk.icon} ${sk.name}</div>
-      <div style="color:#38bdf8; font-weight:900;">영구 배율 x${mStr}</div>
-      <div style="font-size:0.82rem; color:#94a3b8;">보유 수량: ${cnt}장</div>
-      ${canMerge ? `<button class="btn btn-sm btn-rank" onclick="mergeSingle('${key}')">합성 (3장 → x${(parseFloat(mStr)+0.1).toFixed(1)})</button>` : ''}
-    `;
-    grid.appendChild(div);
-  }
-}
-
-let rankTabStage = 1;
-function openRanking() {
-  document.getElementById('rankOverlay').classList.add('active');
-  const tabs = document.getElementById('rankStageTabs');
-  tabs.innerHTML = '';
-  STAGES.forEach(s => {
-    const b = document.createElement('button');
-    b.className = 'btn btn-sm ' + (rankTabStage === s.id ? 'btn-primary' : 'btn-ghost');
-    b.textContent = `STAGE ${s.id}`;
-    b.onclick = () => { rankTabStage = s.id; openRanking(); };
-    tabs.appendChild(b);
-  });
-  fetchRanking(rankTabStage);
-}
-function closeRanking() {
-  document.getElementById('rankOverlay').classList.remove('active');
-}
-async function fetchRanking(stageId) {
-  const body = document.getElementById('rankBody');
-  const status = document.getElementById('rankStatus');
-  body.innerHTML = '';
-  const base = saveData.serverUrl.trim().replace(/\/+$/, '');
-  if (!base) {
-    status.textContent = '⚠️ 상단 입력창에 Render 서버 URL을 입력하고 [연동/저장]을 눌러주세요.';
-    return;
-  }
-  status.textContent = '서버에서 랭킹을 불러오는 중...';
-  try {
-    const res = await fetch(`${base}/api/ranking/${stageId}`);
-    const data = await res.json();
-    if (!data.success || !data.rankings.length) {
-      status.textContent = '아직 등록된 기록이 없습니다. 첫 번째 기록의 주인공이 되어보세요!';
+    tbody.innerHTML = '';
+    const base = getCleanServerUrl();
+    if (!base) {
+      statusText.textContent = '⚠️ 메인 화면에서 서버 URL을 입력하고 [연동]을 눌러주세요.';
       return;
     }
-    status.textContent = `STAGE ${stageId} 실시간 랭킹`;
-    data.rankings.forEach((r, idx) => {
-      const m = String(Math.floor(r.survival_seconds / 60)).padStart(2, '0');
-      const s = String(Math.floor(r.survival_seconds % 60)).padStart(2, '0');
-      body.innerHTML += `<tr><td><b>#${idx+1}</b></td><td>${r.nickname}</td><td>${r.cleared ? '🏆 클리어' : '💀 생존'}</td><td>${m}:${s}</td><td>${r.kills}</td></tr>`;
-    });
-  } catch (e) {
-    status.textContent = '❌ 서버에 연결할 수 없습니다. URL을 확인하거나 잠시 후 다시 시도하세요.';
+    statusText.textContent = `STAGE ${currentRankStage} 랭킹 불러오는 중...`;
+    try {
+      const res = await fetch(`${base}/api/ranking/${currentRankStage}`);
+      const data = await res.json();
+      if (!data.success || !data.rankings || data.rankings.length === 0) {
+        statusText.textContent = '아직 등록된 기록이 없습니다. 첫 번째 기록의 주인공이 되어보세요!';
+        return;
+      }
+      statusText.textContent = `STAGE ${currentRankStage} 실시간 글로벌 TOP 20`;
+      data.rankings.forEach((r, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 px-3 font-orbitron font-black ${idx < 3 ? 'text-amber-300' : 'text-slate-300'}">#${idx + 1}</td>
+          <td class="py-2 px-3 font-bold text-white">${r.nickname}</td>
+          <td class="py-2 px-3">${r.cleared ? '<span class="text-emerald-400 font-bold">🏆 클리어</span>' : '<span class="text-slate-400">💀 생존</span>'}</td>
+          <td class="py-2 px-3 font-orbitron text-cyan-300">${formatTime(r.survival_seconds)}</td>
+          <td class="py-2 px-3 font-orbitron text-purple-300">${r.kills}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (e) {
+      statusText.textContent = '❌ 서버에 연결할 수 없습니다. URL과 서버 실행 상태를 확인하세요.';
+    }
   }
-}
 
-// ==========================================
-// 4. 캔버스 및 게임 루프 엔진
-// ==========================================
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let W = canvas.width = window.innerWidth;
-let H = canvas.height = window.innerHeight;
-window.addEventListener('resize', () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; });
-
-const keys = {};
-window.addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
-window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-
-let joystick = { active: false, startX: 0, startY: 0, dx: 0, dy: 0 };
-canvas.addEventListener('touchstart', e => {
-  if (!game.running) return;
-  const t = e.touches[0];
-  joystick = { active: true, startX: t.clientX, startY: t.clientY, dx: 0, dy: 0 };
-}, { passive: true });
-canvas.addEventListener('touchmove', e => {
-  if (!joystick.active) return;
-  const t = e.touches[0];
-  const vx = t.clientX - joystick.startX;
-  const vy = t.clientY - joystick.startY;
-  const len = Math.hypot(vx, vy);
-  if (len > 5) { joystick.dx = vx / len; joystick.dy = vy / len; }
-}, { passive: true });
-canvas.addEventListener('touchend', () => { joystick.active = false; joystick.dx = 0; joystick.dy = 0; });
-
-let game = {
-  running: false, paused: false, stage: STAGES[0],
-  time: 0, kills: 0, runGold: 0,
-  player: { x: 0, y: 0, r: 14, speed: 240, stopTime: 0, invuln: 0 },
-  skills: {},
-  xp: 0, nextXp: 10, level: 1,
-  spikes: [], gems: [], projectiles: [], particles: [],
-  spawnTimer: 0, shieldAngle: 0, fireTimer: 0, laserTimer: 0, lightningTimer: 0, novaTimer: 0, bladeTimer: 0, droneTimer: 0
-};
-
-function startGame() {
-  document.querySelectorAll('.overlay').forEach(el => el.classList.remove('active'));
-  document.getElementById('hud').style.display = 'flex';
-  const st = STAGES.find(s => s.id === selectedStageId) || STAGES[0];
-  game = {
-    running: true, paused: false, stage: st,
-    time: 0, kills: 0, runGold: 0,
-    player: { x: W / 2, y: H / 2, r: 14, speed: 245, stopTime: 0, invuln: 1.5 },
-    skills: { shield: 1 },
-    xp: 0, nextXp: 10, level: 1,
-    spikes: [], gems: [], projectiles: [], particles: [],
-    spawnTimer: 0, shieldAngle: 0, fireTimer: 0, laserTimer: 0, lightningTimer: 0, novaTimer: 0, bladeTimer: 0, droneTimer: 0
-  };
-  lastTs = performance.now();
-  requestAnimationFrame(loop);
-}
-
-function backToMenu() {
-  game.running = false;
-  document.querySelectorAll('.overlay').forEach(el => el.classList.remove('active'));
-  document.getElementById('hud').style.display = 'none';
-  document.getElementById('menuOverlay').classList.add('active');
-  renderStages();
-  updateGoldUI();
-}
-
-function spawnSpike() {
-  const types = game.stage.types;
-  const type = types[Math.floor(Math.random() * types.length)];
-  const edge = Math.floor(Math.random() * 4);
-  let x, y;
-  if (edge === 0) { x = Math.random() * W; y = -25; }
-  else if (edge === 1) { x = W + 25; y = Math.random() * H; }
-  else if (edge === 2) { x = Math.random() * W; y = H + 25; }
-  else { x = -25; y = Math.random() * H; }
-
-  const ang = Math.atan2(game.player.y - y, game.player.x - x);
-  const baseSpd = (130 + game.time * 0.25) * game.stage.speedMult;
-
-  let r = 13, hp = 1, maxHp = 1, spd = baseSpd, color = '#f43f5e';
-  if (type === 'chase') { color = '#ec4899'; spd = baseSpd * 0.9; }
-  else if (type === 'giant') { r = 26; hp = 4; maxHp = 4; spd = baseSpd * 0.72; color = '#f97316'; }
-  else if (type === 'split') { r = 17; hp = 2; maxHp = 2; color = '#a855f7'; }
-  else if (type === 'zigzag') { color = '#22d3ee'; spd = baseSpd * 1.05; }
-  else if (type === 'sniper') { color = '#facc15'; spd = baseSpd * 1.65; }
-  else if (type === 'ghost') { color = 'rgba(186, 230, 253, 0.55)'; spd = baseSpd * 0.95; }
-  else if (type === 'tank') { r = 30; hp = 30; maxHp = 30; spd = baseSpd * 0.58; color = '#dc2626'; }
-
-  game.spikes.push({
-    x, y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd,
-    r, hp, maxHp, spd, type, color, phase: Math.random() * Math.PI * 2, rot: 0
+  document.getElementById('saveServerBtn').addEventListener('click', () => {
+    const n = nickInputEl.value.trim();
+    if (n) playerNickname = n.slice(0, 12);
+    serverBaseUrl = serverUrlInputEl.value.trim();
+    localStorage.setItem(NICK_KEY, playerNickname);
+    localStorage.setItem(SERVER_URL_KEY, serverBaseUrl);
+    syncServerLoad().then(() => syncServerSave());
+    playTone(720, 'sine', 0.12, 0.08);
   });
-}
 
-function damageSpike(sp, dmg = 1) {
-  if (sp.type === 'ghost') return;
-  sp.hp -= dmg;
-  if (sp.hp <= 0) {
-    sp.dead = true;
-    game.kills++;
-    game.runGold += (sp.type === 'tank' ? 15 : sp.type === 'giant' ? 5 : 2);
-    const tier = sp.type === 'tank' ? 3 : (sp.type === 'giant' || sp.type === 'split' ? 2 : 1);
-    game.gems.push({ x: sp.x, y: sp.y, val: tier === 3 ? 12 : tier === 2 ? 4 : 2, tier });
-    if (sp.type === 'split') {
-      for (let i = 0; i < 2; i++) {
-        const a = Math.random() * Math.PI * 2;
-        game.spikes.push({
-          x: sp.x, y: sp.y, vx: Math.cos(a) * sp.spd * 1.15, vy: Math.sin(a) * sp.spd * 1.15,
-          r: 10, hp: 1, maxHp: 1, spd: sp.spd * 1.15, type: 'normal', color: '#c084fc', phase: 0, rot: 0
-        });
-      }
-    }
-    for (let i = 0; i < 6; i++) {
-      const a = Math.random() * Math.PI * 2;
-      game.particles.push({ x: sp.x, y: sp.y, vx: Math.cos(a)*110, vy: Math.sin(a)*110, life: 0.35, color: sp.color });
-    }
-  }
-}
-
-function triggerLevelUp() {
-  game.paused = true;
-  const overlay = document.getElementById('levelUpOverlay');
-  const box = document.getElementById('skillChoices');
-  box.innerHTML = '';
-
-  const pool = SKILLS.filter(s => (game.skills[s.id] || 0) < 5);
-
-  if (pool.length === 0) {
-    const bonuses = [
-      { icon: '💰', title: '황금 보급품 (+150G)', desc: '즉시 보너스 골드 획득', fn: () => { game.runGold += 150; } },
-      { icon: '🛡️', title: '긴급 보호막 (3초 무적)', desc: '3초간 모든 가시 충돌 방어', fn: () => { game.player.invuln = 3.0; } },
-      { icon: '💥', title: '전역 정화 파동', desc: '유령 가시 제외 주변 가시 대량 타격', fn: () => { game.spikes.forEach(sp => damageSpike(sp, 5)); } }
-    ];
-    bonuses.forEach(b => {
-      const card = document.createElement('div');
-      card.className = 'choice-card';
-      card.innerHTML = `<div style="font-size:2rem;">${b.icon}</div><div style="font-weight:900; margin:6px 0;">${b.title}</div><div style="font-size:0.82rem; color:#94a3b8;">${b.desc}</div>`;
-      card.onclick = () => { b.fn(); overlay.classList.remove('active'); game.paused = false; lastTs = performance.now(); requestAnimationFrame(loop); };
-      box.appendChild(card);
-    });
-  } else {
-    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 3);
-    shuffled.forEach(sk => {
-      const curLv = game.skills[sk.id] || 0;
-      const nextLv = curLv + 1;
-      const isEvo = nextLv === 5;
-      const mult = getSkillCardMult(sk.id);
-      const card = document.createElement('div');
-      card.className = 'choice-card' + (isEvo ? ' evo-ready' : '');
-      card.innerHTML = `
-        <div style="font-size:2.2rem;">${sk.icon}</div>
-        <div style="font-weight:900; font-size:1.05rem; margin:6px 0; color:${isEvo ? '#fbbf24' : '#f8fafc'};">
-          ${isEvo ? `★ 각성: ${sk.evoName}` : `${sk.name} (LV.${nextLv})`}
-        </div>
-        <div style="font-size:0.82rem; color:#94a3b8;">${isEvo ? '5장 수집 완료! 궁극 진화 발동' : sk.desc}</div>
-        <div style="font-size:0.78rem; color:#38bdf8; margin-top:6px;">보유 카드 배율: x${mult.toFixed(1)}</div>
-      `;
-      card.onclick = () => {
-        game.skills[sk.id] = nextLv;
-        overlay.classList.remove('active');
-        game.paused = false;
-        lastTs = performance.now();
-        requestAnimationFrame(loop);
-      };
-      box.appendChild(card);
-    });
-  }
-  overlay.classList.add('active');
-}
-
-function endGame(cleared, reason = '') {
-  game.running = false;
-  document.getElementById('hud').style.display = 'none';
-  const bonus = cleared ? game.stage.reward : 0;
-  const totalEarned = game.runGold + bonus;
-  saveData.gold += totalEarned;
-  if (cleared && !saveData.clearedStages.includes(game.stage.id)) {
-    saveData.clearedStages.push(game.stage.id);
-  }
-  persistLocal();
-  syncWithServer('save');
-
-  const base = saveData.serverUrl.trim().replace(/\/+$/, '');
-  if (base) {
-    fetch(`${base}/api/ranking/submit`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        playerId: saveData.playerId,
-        nickname: saveData.nickname,
-        stage: game.stage.id,
-        survivalSeconds: game.time,
-        cleared,
-        kills: game.kills
-      })
-    }).catch(() => {});
-  }
-
-  document.getElementById('resultTitle').textContent = cleared ? '🏆 STAGE CLEAR!' : '💀 GAME OVER';
-  document.getElementById('resultTitle').style.color = cleared ? '#34d399' : '#f87171';
-  document.getElementById('resultReason').textContent = cleared ? `${game.stage.title} 정복 성공!` : reason;
-  const m = String(Math.floor(game.time / 60)).padStart(2, '0');
-  const s = String(Math.floor(game.time % 60)).padStart(2, '0');
-  document.getElementById('resultStats').innerHTML = `
-    <div>⏱ 생존 시간: <b>${m}:${s}</b></div>
-    <div>⚔️ 처치한 가시: <b>${game.kills}개</b></div>
-    <div>💰 획득 골드: <b>+${game.runGold.toLocaleString()} G</b></div>
-    ${cleared ? `<div style="color:#fbbf24;">🎁 스테이지 클리어 보너스: <b>+${bonus.toLocaleString()} G</b></div>` : ''}
-  `;
-  document.getElementById('resultOverlay').classList.add('active');
-}
-
-function drawThemeBackground() {
-  const th = game.stage.theme;
-  if (th === 'forest') {
-    ctx.fillStyle = '#061a14'; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(16, 185, 129, 0.08)';
-  } else if (th === 'canyon') {
-    ctx.fillStyle = '#160b24'; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(236, 72, 153, 0.1)';
-  } else if (th === 'ghost') {
-    ctx.fillStyle = '#0c1322'; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
-  } else if (th === 'fortress') {
-    ctx.fillStyle = '#1c0a0a'; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(249, 115, 22, 0.1)';
-  } else {
-    ctx.fillStyle = '#050614'; ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = 'rgba(99, 102, 241, 0.12)';
-  }
-  const step = 48;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (let x = 0; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
-  for (let y = 0; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
-  ctx.stroke();
-}
-
-let lastTs = 0;
-function loop(ts) {
-  if (!game.running || game.paused) return;
-  const dt = Math.min(0.05, (ts - lastTs) / 1000);
-  lastTs = ts;
-
-  game.time += dt;
-  if (game.time >= game.stage.duration) {
-    endGame(true);
-    return;
-  }
-
-  let mx = 0, my = 0;
-  if (keys['w'] || keys['arrowup']) my -= 1;
-  if (keys['s'] || keys['arrowdown']) my += 1;
-  if (keys['a'] || keys['arrowleft']) mx -= 1;
-  if (keys['d'] || keys['arrowright']) mx += 1;
-  if (joystick.active) { mx = joystick.dx; my = joystick.dy; }
-
-  const mLen = Math.hypot(mx, my);
-  if (mLen > 0) {
-    mx /= mLen; my /= mLen;
-    const spdLv = game.skills.speed || 0;
-    const spdMult = (1 + spdLv * 0.08) * getSkillCardMult('speed');
-    game.player.x = Math.max(16, Math.min(W - 16, game.player.x + mx * game.player.speed * spdMult * dt));
-    game.player.y = Math.max(16, Math.min(H - 16, game.player.y + my * game.player.speed * spdMult * dt));
-    game.player.stopTime = 0;
-  } else {
-    game.player.stopTime += dt;
-    if (game.player.stopTime >= 1.0) {
-      endGame(false, '⚠️ 1초 이상 정지하여 규칙 위반으로 사망했습니다!');
-      return;
-    }
-  }
-  if (game.player.invuln > 0) game.player.invuln -= dt;
-
-  game.spawnTimer -= dt;
-  if (game.spawnTimer <= 0) {
-    spawnSpike();
-    game.spawnTimer = Math.max(0.18, game.stage.spawnRate - game.time * 0.0008);
-  }
-
-  const timeLv = game.skills.time || 0;
-  const slowRadius = timeLv > 0 ? (110 + timeLv * 18) * getSkillCardMult('time') : 0;
-
-  const shLv = game.skills.shield || 0;
-  if (shLv > 0) {
-    const shMult = getSkillCardMult('shield');
-    game.shieldAngle += (2.4 + shLv * 0.25) * dt;
-    const count = Math.min(4, 1 + Math.floor(shLv / 2));
-    const orbitR = (54 + shLv * 6) * Math.min(1.35, shMult);
-    for (let i = 0; i < count; i++) {
-      const a = game.shieldAngle + (Math.PI * 2 / count) * i;
-      const sx = game.player.x + Math.cos(a) * orbitR;
-      const sy = game.player.y + Math.sin(a) * orbitR;
-      game.spikes.forEach(sp => {
-        if (!sp.dead && Math.hypot(sp.x - sx, sp.y - sy) < sp.r + 12) {
-          damageSpike(sp, 1);
-        }
-      });
-    }
-  }
-
-  const lzLv = game.skills.laser || 0;
-  if (lzLv > 0) {
-    game.laserTimer -= dt;
-    if (game.laserTimer <= 0) {
-      const target = game.spikes.find(s => !s.dead && s.type !== 'ghost');
-      if (target) {
-        const a = Math.atan2(target.y - game.player.y, target.x - game.player.x);
-        game.projectiles.push({ x: game.player.x, y: game.player.y, vx: Math.cos(a)*520, vy: Math.sin(a)*520, r: 5, life: 1.2, color: '#38bdf8', pierce: lzLv === 5 ? 2 : 1 });
-      }
-      game.laserTimer = Math.max(0.32, 0.95 - lzLv * 0.11);
-    }
-  }
-
-  const frLv = game.skills.fire || 0;
-  if (frLv > 0) {
-    game.fireTimer -= dt;
-    if (game.fireTimer <= 0) {
-      const rad = (70 + frLv * 14) * Math.min(1.3, getSkillCardMult('fire'));
-      game.spikes.forEach(sp => {
-        if (!sp.dead && Math.hypot(sp.x - game.player.x, sp.y - game.player.y) < rad + sp.r) damageSpike(sp, 1);
-      });
-      game.fireTimer = 0.45;
-    }
-  }
-
-  const lgLv = game.skills.lightning || 0;
-  if (lgLv > 0) {
-    game.lightningTimer -= dt;
-    if (game.lightningTimer <= 0) {
-      const targets = game.spikes.filter(s => !s.dead && s.type !== 'ghost').slice(0, 1 + Math.floor(lgLv / 2));
-      targets.forEach(t => {
-        damageSpike(t, 1);
-        game.particles.push({ x: t.x, y: t.y, vx: 0, vy: 0, life: 0.2, color: '#facc15', boltFrom: { x: game.player.x, y: game.player.y } });
-      });
-      game.lightningTimer = Math.max(0.7, 1.8 - lgLv * 0.18);
-    }
-  }
-
-  const nvLv = game.skills.nova || 0;
-  if (nvLv > 0) {
-    game.novaTimer -= dt;
-    if (game.novaTimer <= 0) {
-      const rad = 115 + nvLv * 16;
-      game.spikes.forEach(sp => {
-        if (!sp.dead && Math.hypot(sp.x - game.player.x, sp.y - game.player.y) < rad) damageSpike(sp, 1);
-      });
-      game.particles.push({ x: game.player.x, y: game.player.y, vx: 0, vy: 0, life: 0.3, color: '#f472b6', ringR: rad });
-      game.novaTimer = Math.max(1.4, 3.0 - nvLv * 0.28);
-    }
-  }
-
-  const blLv = game.skills.blade || 0;
-  if (blLv > 0) {
-    game.bladeTimer -= dt;
-    if (game.bladeTimer <= 0) {
-      const a = Math.random() * Math.PI * 2;
-      game.projectiles.push({ x: game.player.x, y: game.player.y, vx: Math.cos(a)*340, vy: Math.sin(a)*340, r: 9, life: 1.6, color: '#34d399', pierce: 3 });
-      game.bladeTimer = Math.max(0.65, 1.5 - blLv * 0.15);
-    }
-  }
-  const drLv = game.skills.drone || 0;
-  if (drLv > 0) {
-    game.droneTimer -= dt;
-    if (game.droneTimer <= 0) {
-      const t = game.spikes.find(s => !s.dead && s.type !== 'ghost');
-      if (t) {
-        const a = Math.atan2(t.y - game.player.y, t.x - game.player.x);
-        game.projectiles.push({ x: game.player.x, y: game.player.y, vx: Math.cos(a)*410, vy: Math.sin(a)*410, r: 6, life: 1.4, color: '#a855f7', pierce: 1 });
-      }
-      game.droneTimer = Math.max(0.45, 1.2 - drLv * 0.14);
-    }
-  }
-
-  game.projectiles.forEach(p => {
-    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
-    game.spikes.forEach(sp => {
-      if (!sp.dead && sp.type !== 'ghost' && p.life > 0 && Math.hypot(sp.x - p.x, sp.y - p.y) < sp.r + p.r) {
-        damageSpike(sp, 1);
-        p.pierce--;
-        if (p.pierce <= 0) p.life = 0;
-      }
-    });
+  document.getElementById('openRankStartBtn').addEventListener('click', () => openRankingModal(selectedStageId));
+  document.getElementById('closeRankBtn').addEventListener('click', () => {
+    document.getElementById('rankOverlay').classList.add('hidden');
   });
-  game.projectiles = game.projectiles.filter(p => p.life > 0);
 
-  for (const sp of game.spikes) {
-    if (sp.dead) continue;
-    sp.rot += 3 * dt;
-    let slowFactor = 1.0;
-    if (slowRadius > 0 && Math.hypot(sp.x - game.player.x, sp.y - game.player.y) < slowRadius) slowFactor = 0.65;
-
-    if (sp.type === 'chase') {
-      const a = Math.atan2(game.player.y - sp.y, game.player.x - sp.x);
-      sp.vx = Math.cos(a) * sp.spd;
-      sp.vy = Math.sin(a) * sp.spd;
-    } else if (sp.type === 'zigzag') {
-      sp.phase += 6 * dt;
-      const perp = Math.atan2(sp.vy, sp.vx) + Math.PI / 2;
-      sp.x += Math.cos(perp) * Math.sin(sp.phase) * 90 * dt * slowFactor;
-      sp.y += Math.sin(perp) * Math.sin(sp.phase) * 90 * dt * slowFactor;
-    }
-
-    sp.x += sp.vx * dt * slowFactor;
-    sp.y += sp.vy * dt * slowFactor;
-
-    if (game.player.invuln <= 0 && Math.hypot(sp.x - game.player.x, sp.y - game.player.y) < sp.r + game.player.r - 3) {
-      endGame(false, `💥 ${sp.type === 'ghost' ? '유령 가시' : sp.type === 'tank' ? '체급 가시' : '가시'}에 찔려 사망했습니다!`);
-      return;
-    }
-  }
-  game.spikes = game.spikes.filter(s => !s.dead && s.x > -120 && s.x < W + 120 && s.y > -120 && s.y < H + 120);
-
-  const magLv = game.skills.magnet || 0;
-  const magRange = (70 + magLv * 32) * getSkillCardMult('magnet');
-  for (const g of game.gems) {
-    const d = Math.hypot(g.x - game.player.x, g.y - game.player.y);
-    if (d < magRange) {
-      const a = Math.atan2(game.player.y - g.y, game.player.x - g.x);
-      g.x += Math.cos(a) * 380 * dt;
-      g.y += Math.sin(a) * 380 * dt;
-    }
-    if (d < game.player.r + 10) {
-      g.collected = true;
-      game.xp += g.val;
-      if (game.xp >= game.nextXp) {
-        game.xp -= game.nextXp;
-        game.level++;
-        game.nextXp = Math.floor(game.nextXp * 1.28 + 4);
-        triggerLevelUp();
-      }
-    }
-  }
-  game.gems = game.gems.filter(g => !g.collected);
-
-  drawThemeBackground();
-
-  if (slowRadius > 0) {
-    ctx.beginPath(); ctx.arc(game.player.x, game.player.y, slowRadius, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.06)'; ctx.fill();
-  }
-  if (frLv > 0) {
-    ctx.beginPath(); ctx.arc(game.player.x, game.player.y, 70 + frLv * 14, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(249, 115, 22, 0.35)'; ctx.lineWidth = 2; ctx.stroke();
-  }
-
-  for (const g of game.gems) {
-    ctx.fillStyle = g.tier === 3 ? '#f43f5e' : g.tier === 2 ? '#a855f7' : '#38bdf8';
-    ctx.beginPath();
-    ctx.moveTo(g.x, g.y - 6); ctx.lineTo(g.x + 5, g.y); ctx.lineTo(g.x, g.y + 6); ctx.lineTo(g.x - 5, g.y);
-    ctx.closePath(); ctx.fill();
-  }
-
-  for (const sp of game.spikes) {
-    ctx.save();
-    ctx.translate(sp.x, sp.y);
-    ctx.rotate(sp.rot);
-    ctx.fillStyle = sp.color;
-    ctx.beginPath();
-    const pts = sp.type === 'tank' ? 8 : 4;
-    for (let i = 0; i < pts * 2; i++) {
-      const rad = i % 2 === 0 ? sp.r : sp.r * 0.45;
-      const a = (Math.PI / pts) * i;
-      if (i === 0) ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad);
-      else ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad);
-    }
-    ctx.closePath(); ctx.fill();
-    ctx.restore();
-
-    if (sp.type === 'tank' || sp.maxHp > 1) {
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(sp.x - 18, sp.y - sp.r - 10, 36, 5);
-      ctx.fillStyle = '#fbbf24';
-      ctx.fillRect(sp.x - 18, sp.y - sp.r - 10, 36 * (sp.hp / sp.maxHp), 5);
-    }
-  }
-
-  if (shLv > 0) {
-    const count = Math.min(4, 1 + Math.floor(shLv / 2));
-    const orbitR = (54 + shLv * 6) * Math.min(1.35, getSkillCardMult('shield'));
-    for (let i = 0; i < count; i++) {
-      const a = game.shieldAngle + (Math.PI * 2 / count) * i;
-      ctx.fillStyle = shLv === 5 ? '#fbbf24' : '#38bdf8';
-      ctx.beginPath();
-      ctx.arc(game.player.x + Math.cos(a) * orbitR, game.player.y + Math.sin(a) * orbitR, 8, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-
-  for (const p of game.projectiles) {
-    ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-  }
-  game.particles.forEach(pt => {
-    pt.x += pt.vx * dt; pt.y += pt.vy * dt; pt.life -= dt;
-    ctx.strokeStyle = pt.color; ctx.fillStyle = pt.color;
-    if (pt.boltFrom) {
-      ctx.beginPath(); ctx.moveTo(pt.boltFrom.x, pt.boltFrom.y); ctx.lineTo(pt.x, pt.y); ctx.stroke();
-    } else if (pt.ringR) {
-      ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.ringR * (1 - pt.life / 0.3), 0, Math.PI * 2); ctx.stroke();
-    } else {
-      ctx.fillRect(pt.x, pt.y, 4, 4);
-    }
-  });
-  game.particles = game.particles.filter(pt => pt.life > 0);
-
-  if (game.player.stopTime > 0.1) {
-    ctx.beginPath();
-    ctx.arc(game.player.x, game.player.y, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * game.player.stopTime);
-    ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 4; ctx.stroke();
-  }
-  ctx.fillStyle = game.player.invuln > 0 ? '#34d399' : '#f8fafc';
-  ctx.beginPath(); ctx.arc(game.player.x, game.player.y, game.player.r, 0, Math.PI * 2); ctx.fill();
-
-  const curM = String(Math.floor(game.time / 60)).padStart(2, '0');
-  const curS = String(Math.floor(game.time % 60)).padStart(2, '0');
-  const maxM = String(Math.floor(game.stage.duration / 60)).padStart(2, '0');
-  const maxS = String(Math.floor(game.stage.duration % 60)).padStart(2, '0');
-  document.getElementById('hudStage').textContent = `STAGE ${game.stage.id} · ${game.stage.title}`;
-  document.getElementById('hudTime').textContent = `⏱ ${curM}:${curS} / ${maxM}:${maxS}`;
-  document.getElementById('hudLv').textContent = `LV.${game.level} (${game.xp}/${game.nextXp})`;
-  document.getElementById('hudGold').textContent = `💰 ${game.runGold} G`;
-  document.getElementById('stageBar').style.width = `${Math.min(100, (game.time / game.stage.duration) * 100)}%`;
-  document.getElementById('xpBar').style.width = `${Math.min(100, (game.xp / game.nextXp) * 100)}%`;
-  document.getElementById('stopWarnBanner').style.display = game.player.stopTime > 0.2 ? 'block' : 'none';
-
-  requestAnimationFrame(loop);
-}
-
-document.getElementById('nickInput').value = saveData.nickname;
-document.getElementById('serverUrlInput').value = saveData.serverUrl;
-updateGoldUI();
-renderStages();
-syncWithServer('load');
+  loadData();
+  syncServerLoad();
+  requestAnimationFrame(mainLoop);
+})();
 </script>
 </body>
 </html>
